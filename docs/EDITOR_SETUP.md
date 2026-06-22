@@ -20,3 +20,17 @@
 中等和困难按钮本阶段只显示“该模式将在后续阶段开放”，不会进入棋盘。
 
 游戏界面会按当前 Canvas 可见尺寸划分为顶部状态栏、中央棋盘区和底部操作区。建议重点验证 720x1280、1080x1920 竖屏预览；1280x720 横屏只要求内容完整且不互相遮挡。
+
+## 阶段 2 路径算法调试
+
+`LinkPathFinderDebugRunner` 只用于开发验证，不要长期挂在场景里。
+
+1. 等待 Cocos Creator 资源刷新和 TypeScript 编译完成。
+2. 在 Hierarchy 中选中 `Canvas` 节点。
+3. 在 Inspector 中点击“添加组件”。
+4. 搜索并添加 `LinkPathFinderDebugRunner` 组件。
+5. 点击预览运行。
+6. 打开 Console，确认每个路径测试输出 `PASS`，最后显示失败数量为 0。
+7. 测试结束后，停止预览。
+8. 回到 `Canvas` 节点，在 Inspector 中移除 `LinkPathFinderDebugRunner` 组件。
+9. 保存场景前确认只保留正式需要的 `GameBootstrap` 组件。

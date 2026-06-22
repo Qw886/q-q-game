@@ -16,3 +16,19 @@ export interface TileData {
   readonly column: number;
 }
 
+export interface GridPoint {
+  readonly row: number;
+  readonly column: number;
+}
+
+export interface BoardTile {
+  readonly position: GridPoint;
+  readonly type: string;
+}
+
+export interface PathResult {
+  readonly connected: boolean;
+  readonly turns: number;
+  readonly points: readonly GridPoint[];
+  readonly failureReason?: string;
+}
