@@ -1,4 +1,5 @@
 import { _decorator, Color, Component, Graphics, Label, Node, UITransform, Vec3 } from 'cc';
+import { getTileDisplayName } from '../config/TileDisplayConfig';
 import { TileData } from '../core/GameTypes';
 
 const { ccclass } = _decorator;
@@ -26,7 +27,7 @@ export class TileView extends Component {
     transform.setContentSize(width, height);
 
     this.drawTile(this.borderColor, 2);
-    this.createLabel(tile.label, width, height);
+    this.createLabel(getTileDisplayName(tile.type), width, height);
   }
 
   public setSelected(selected: boolean): void {
@@ -86,7 +87,7 @@ export class TileView extends Component {
 
     transform.setContentSize(width, height);
     label.string = text;
-    label.fontSize = Math.max(14, Math.floor(Math.min(width, height) * 0.38));
+    label.fontSize = this.calculateLabelFontSize(text, width, height);
     label.lineHeight = label.fontSize + 4;
     label.color = this.textColor;
     label.horizontalAlign = Label.HorizontalAlign.CENTER;
@@ -100,5 +101,12 @@ export class TileView extends Component {
     ComponentClass: new () => T,
   ): T {
     return target.getComponent(ComponentClass) ?? target.addComponent(ComponentClass);
+  }
+
+  private calculateLabelFontSize(text: string, width: number, height: number): number {
+    const maxByHeight = Math.floor(height * 0.36);
+    const maxByWidth = Math.floor((width * 0.78) / Math.max(1, text.length));
+
+    return Math.max(12, Math.min(maxByHeight, maxByWidth));
   }
 }

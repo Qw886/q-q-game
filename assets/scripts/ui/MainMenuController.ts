@@ -72,7 +72,7 @@ export class MainMenuController extends Component {
     this.messageLabel = this.messageNode.addComponent(Label);
 
     transform.setContentSize(560, 48);
-    this.messageNode.setPosition(0, -height / 2 + 170, 0);
+    this.messageNode.setPosition(0, Math.max(-height / 2 + 45, -300), 0);
     this.messageNode.active = false;
     this.messageLabel.string = '该模式将在后续阶段开放';
     this.messageLabel.fontSize = 22;
@@ -90,7 +90,7 @@ export class MainMenuController extends Component {
     const label = hintNode.addComponent(Label);
 
     transform.setContentSize(560, 52);
-    hintNode.setPosition(0, -height / 2 + 230, 0);
+    hintNode.setPosition(0, Math.max(-height / 2 + 90, -230), 0);
     label.string = '计分：每对基础100分，剩余每秒奖励10分';
     label.fontSize = 20;
     label.lineHeight = 26;

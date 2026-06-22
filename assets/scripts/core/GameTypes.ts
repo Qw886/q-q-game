@@ -1,3 +1,5 @@
+import type { BoardState } from './BoardState';
+
 export type DifficultyId = 'normal' | 'medium' | 'hard';
 
 export interface DifficultyConfig {
@@ -34,7 +36,7 @@ export interface PathResult {
   readonly failureReason?: string;
 }
 
-export type GameEndReason = 'win' | 'timeout';
+export type GameEndReason = 'win' | 'timeout' | 'deadlock';
 
 export interface GameSnapshot {
   readonly modeName: string;
@@ -45,6 +47,51 @@ export interface GameSnapshot {
 }
 
 export type GameStatus = 'running' | 'won' | 'lost';
+
+export interface SolutionStep {
+  readonly first: GridPoint;
+  readonly second: GridPoint;
+  readonly tileType: string;
+}
+
+export interface LegalMove {
+  readonly first: GridPoint;
+  readonly second: GridPoint;
+  readonly tileType: string;
+  readonly path: PathResult;
+}
+
+export interface GeneratedBoard {
+  readonly board: BoardState;
+  readonly seed: number;
+  readonly tiles: readonly TileData[];
+  readonly solution: readonly SolutionStep[];
+  readonly generationAttempts: number;
+  readonly validationPassed: boolean;
+  readonly generationStrategy: 'BACKTRACKING' | 'FALLBACK' | 'FIXED';
+  readonly searchNodes: number;
+  readonly backtrackCount: number;
+  readonly restartCount: number;
+  readonly difficultyMetrics: BoardDifficultyMetrics;
+  readonly difficultySelectionAttempts: number;
+  readonly generationElapsedMilliseconds: number;
+  readonly skeletonElapsedMilliseconds: number;
+  readonly assignmentOptimizationElapsedMilliseconds: number;
+  readonly optimizationIterations: number;
+}
+
+export interface BoardDifficultyMetrics {
+  readonly totalLegalMoves: number;
+  readonly zeroTurnMoves: number;
+  readonly oneTurnMoves: number;
+  readonly twoTurnMoves: number;
+  readonly adjacentMatchingMoves: number;
+  readonly edgeLegalMoves: number;
+  readonly firstTenStepsAverageMoves: number;
+  readonly score: number;
+  readonly accepted: boolean;
+  readonly rejectionReasons: readonly string[];
+}
 
 export type TileClickResult =
   | {

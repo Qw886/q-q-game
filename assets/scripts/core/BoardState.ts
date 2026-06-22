@@ -1,4 +1,4 @@
-import { BoardTile, GridPoint } from './GameTypes';
+import type { BoardTile, GridPoint } from './GameTypes';
 
 export class BoardState {
   public readonly rows: number;
@@ -34,6 +34,31 @@ export class BoardState {
   public removeTiles(first: GridPoint, second: GridPoint): void {
     this.removeTile(first);
     this.removeTile(second);
+  }
+
+  public getRemainingCount(): number {
+    return this.tilesByPosition.size;
+  }
+
+  public getAllTiles(): BoardTile[] {
+    const tiles: BoardTile[] = [];
+
+    for (const [key, type] of this.tilesByPosition.entries()) {
+      const [rowText, columnText] = key.split(',');
+      tiles.push({
+        position: {
+          row: Number(rowText),
+          column: Number(columnText),
+        },
+        type,
+      });
+    }
+
+    return tiles;
+  }
+
+  public clone(): BoardState {
+    return new BoardState(this.rows, this.columns, this.getAllTiles());
   }
 
   public isInsideBoard(point: GridPoint): boolean {

@@ -32,13 +32,8 @@ export class ResultDialogController extends Component {
     graphics.fill();
 
     const panel = this.createPanel(Math.min(460, width * 0.78), Math.min(360, height * 0.48));
-    const title = reason === 'win' ? '通关成功' : '时间结束';
-    const detail = reason === 'win'
-      ? `最终分数：${snapshot.score}\n剩余：${snapshot.remainingTiles}`
-      : `最终分数：${snapshot.score}\n剩余麻将：${snapshot.remainingTiles}`;
-
-    this.addPanelLabel(panel, 'Title', title, 0, 90, 34);
-    this.addPanelLabel(panel, 'Detail', detail, 0, 28, 24);
+    this.addPanelLabel(panel, 'Title', this.getTitle(reason), 0, 90, 34);
+    this.addPanelLabel(panel, 'Detail', this.getDetail(snapshot, reason), 0, 28, 24);
 
     this.restartButton = this.createButton('重新开始', 180, 54);
     this.restartButton.setPosition(-100, -92, 0);
@@ -104,7 +99,7 @@ export class ResultDialogController extends Component {
     const labelNode = new Node(name);
     const transform = labelNode.addComponent(UITransform);
     const label = labelNode.addComponent(Label);
-    transform.setContentSize(360, 92);
+    transform.setContentSize(360, Math.max(92, fontSize * 4.5));
     labelNode.setPosition(x, y, 0);
     label.string = text;
     label.fontSize = fontSize;
@@ -153,5 +148,25 @@ export class ResultDialogController extends Component {
     if (this.onMenu) {
       this.onMenu();
     }
+  }
+
+  private getTitle(reason: GameEndReason): string {
+    if (reason === 'win') {
+      return '\u901a\u5173\u6210\u529f';
+    }
+
+    if (reason === 'deadlock') {
+      return '\u65e0\u53ef\u6d88\u9664\u7ec4\u5408';
+    }
+
+    return '\u65f6\u95f4\u7ed3\u675f';
+  }
+
+  private getDetail(snapshot: GameSnapshot, reason: GameEndReason): string {
+    if (reason === 'deadlock') {
+      return `\u672c\u5c40\u5931\u8d25\n\u6700\u7ec8\u5206\u6570\uff1a${snapshot.score}\n\u5269\u4f59\u9ebb\u5c06\uff1a${snapshot.remainingTiles}`;
+    }
+
+    return `\u6700\u7ec8\u5206\u6570\uff1a${snapshot.score}\n\u5269\u4f59\u9ebb\u5c06\uff1a${snapshot.remainingTiles}`;
   }
 }

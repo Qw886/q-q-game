@@ -1,44 +1,30 @@
-import { BoardState } from './BoardState';
 import { SCORE_CONFIG } from '../config/ScoreConfig';
+import { BoardGenerator } from './BoardGenerator';
+import { BoardState } from './BoardState';
+import { DeadlockDetector } from './DeadlockDetector';
+import { LinkPathFinder } from './LinkPathFinder';
 import {
-  BoardTile,
   DifficultyConfig,
   GameEndReason,
   GameSnapshot,
   GameStatus,
+  GeneratedBoard,
   GridPoint,
+  SolutionStep,
   TileClickResult,
   TileData,
 } from './GameTypes';
-import { LinkPathFinder } from './LinkPathFinder';
-
-const TILE_LABELS: readonly string[] = [
-  '一万',
-  '二万',
-  '三万',
-  '四万',
-  '五万',
-  '一筒',
-  '二筒',
-  '三筒',
-  '四筒',
-  '五筒',
-  '一条',
-  '二条',
-  '三条',
-  '四条',
-  '五条',
-  '东',
-  '南',
-  '西',
-  '北',
-  '中',
-];
 
 export class GameSession {
   public readonly config: DifficultyConfig;
   public readonly board: BoardState;
+  public readonly seed: number;
+  public readonly solution: readonly SolutionStep[];
+  public readonly generationAttempts: number;
+  public readonly validationPassed: boolean;
+  public readonly generationStrategy: 'BACKTRACKING' | 'FALLBACK';
   private readonly pathFinder = new LinkPathFinder();
+  private readonly deadlockDetector = new DeadlockDetector();
   private readonly tiles: readonly TileData[];
   private selectedPoint: GridPoint | null = null;
   private remainingTileCount: number;
@@ -48,12 +34,20 @@ export class GameSession {
   private currentEndReason: GameEndReason | null = null;
   private inputLocked = false;
 
-  public constructor(config: DifficultyConfig) {
+  public constructor(config: DifficultyConfig, seed?: number) {
+    const generatedBoard = new BoardGenerator().generate(config, seed);
+
     this.config = config;
-    this.tiles = this.createFixedTiles(config);
-    this.board = new BoardState(config.rows, config.columns, this.toBoardTiles(this.tiles));
-    this.remainingTileCount = config.tileCount;
+    this.board = generatedBoard.board;
+    this.tiles = generatedBoard.tiles;
+    this.seed = generatedBoard.seed;
+    this.solution = generatedBoard.solution;
+    this.generationAttempts = generatedBoard.generationAttempts;
+    this.validationPassed = generatedBoard.validationPassed;
+    this.generationStrategy = generatedBoard.generationStrategy;
+    this.remainingTileCount = this.board.getRemainingCount();
     this.currentRemainingTime = config.roundTime;
+    this.logGenerationSummary(generatedBoard);
   }
 
   public getTiles(): readonly TileData[] {
@@ -174,19 +168,14 @@ export class GameSession {
       gainedScore = SCORE_CONFIG.pairBaseScore + remainingSeconds * SCORE_CONFIG.remainingSecondBonus;
 
       this.board.removeTiles(first, second);
-      this.remainingTileCount = Math.max(0, this.remainingTileCount - 2);
+      this.remainingTileCount = this.board.getRemainingCount();
       this.currentScore += gainedScore;
       this.currentRemainingTime = this.config.roundTime;
     }
 
     this.selectedPoint = null;
     this.inputLocked = false;
-
-    if (this.remainingTileCount === 0) {
-      this.currentStatus = 'won';
-      this.currentEndReason = 'win';
-      this.inputLocked = true;
-    }
+    this.updateEndStateAfterRemoval();
 
     return gainedScore;
   }
@@ -199,10 +188,7 @@ export class GameSession {
     this.currentRemainingTime = Math.max(0, this.currentRemainingTime - Math.max(0, deltaSeconds));
 
     if (this.currentRemainingTime <= 0) {
-      this.currentStatus = 'lost';
-      this.currentEndReason = 'timeout';
-      this.inputLocked = true;
-      this.selectedPoint = null;
+      this.setLost('timeout');
 
       return 'timeout';
     }
@@ -210,33 +196,31 @@ export class GameSession {
     return null;
   }
 
-  private createFixedTiles(config: DifficultyConfig): TileData[] {
-    const tiles: TileData[] = [];
-
-    for (let row = 0; row < config.rows; row += 1) {
-      for (let column = 0; column < config.columns; column += 1) {
-        const id = row * config.columns + column;
-        const pairIndex = Math.floor(id / 2);
-        const label = TILE_LABELS[pairIndex % TILE_LABELS.length];
-
-        tiles.push({
-          id,
-          label,
-          type: label,
-          row,
-          column,
-        });
-      }
+  private updateEndStateAfterRemoval(): void {
+    if (this.remainingTileCount === 0) {
+      this.currentStatus = 'won';
+      this.currentEndReason = 'win';
+      this.inputLocked = true;
+      return;
     }
 
-    return tiles;
+    if (this.deadlockDetector.isDeadlocked(this.board)) {
+      this.setLost('deadlock');
+    }
   }
 
-  private toBoardTiles(tiles: readonly TileData[]): BoardTile[] {
-    return tiles.map((tile) => ({
-      position: { row: tile.row, column: tile.column },
-      type: tile.type,
-    }));
+  private setLost(reason: Exclude<GameEndReason, 'win'>): void {
+    this.currentStatus = 'lost';
+    this.currentEndReason = reason;
+    this.inputLocked = true;
+    this.selectedPoint = null;
+  }
+
+  private logGenerationSummary(generatedBoard: GeneratedBoard): void {
+    const metrics = generatedBoard.difficultyMetrics;
+    console.info(
+      `[Stage4] seed=${generatedBoard.seed}, strategy=${generatedBoard.generationStrategy}, elapsedMs=${generatedBoard.generationElapsedMilliseconds}, skeletonMs=${generatedBoard.skeletonElapsedMilliseconds}, optimizationMs=${generatedBoard.assignmentOptimizationElapsedMilliseconds}, optimizationIterations=${generatedBoard.optimizationIterations}, openingMoves=${metrics.totalLegalMoves}, zeroTurnMoves=${metrics.zeroTurnMoves}, oneTurnMoves=${metrics.oneTurnMoves}, twoTurnMoves=${metrics.twoTurnMoves}, adjacentMatchingMoves=${metrics.adjacentMatchingMoves}, penaltyScore=${metrics.score.toFixed(1)}, firstTenStepsAverageMoves=${metrics.firstTenStepsAverageMoves.toFixed(1)}, accepted=${metrics.accepted}`,
+    );
   }
 
   private getDisplayedRemainingSeconds(): number {

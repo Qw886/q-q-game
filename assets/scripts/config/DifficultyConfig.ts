@@ -1,4 +1,4 @@
-import { DifficultyConfig, DifficultyId } from '../core/GameTypes';
+import type { DifficultyConfig, DifficultyId } from '../core/GameTypes';
 
 export const DIFFICULTIES: readonly DifficultyConfig[] = [
   {
@@ -38,4 +38,3 @@ export function getDifficultyConfig(id: DifficultyId): DifficultyConfig {
 }
 
 export const NORMAL_DIFFICULTY = getDifficultyConfig('normal');
-

@@ -49,3 +49,26 @@
 8. 等待倒计时到 0，确认显示“时间结束”结算界面。
 9. 点击“重新开始”，确认棋盘、分数、剩余数量和时间恢复。
 10. 点击“返回菜单”，确认回到模式选择页且倒计时停止。
+
+## 阶段 4 随机棋盘与死局验证
+
+正式试玩不需要新增组件，继续保留 `Canvas` 节点上的 `GameBootstrap` 即可。
+
+1. 等待 Cocos Creator 资源刷新和 TypeScript 编译完成。
+2. 确认 `Canvas` 节点只保留正式需要的 `GameBootstrap`，不要长期保留调试组件。
+3. 点击预览并进入“普通模式”。
+4. 观察 Console 中只输出一次阶段 4 摘要：seed、generationStrategy、openingMoves、zeroTurnMoves、oneTurnMoves、twoTurnMoves、adjacentMatchingMoves、firstTenStepsAverageMoves、difficultySelectionAttempts 和 accepted。
+5. 点击可连接的同图案麻将，确认消除后剩余数减少、倒计时恢复，并且游戏继续检测是否死局。
+6. 如果出现“无可消除组合”，确认倒计时停止、棋盘不可继续点击，并可点击“重新开始”或“返回菜单”。
+7. 多次点击“重新开始”，确认棋盘通常变化，Console 中 seed 也随之变化。
+
+`Stage4DebugRunner` 只用于开发验证，不要长期挂在场景里。
+
+1. 在 Hierarchy 中选中 `Canvas` 节点。
+2. 在 Inspector 中点击“添加组件”。
+3. 搜索并添加 `Stage4DebugRunner`。
+4. 点击预览运行。
+5. 打开 Console，确认每项输出 `PASS`，最后显示 `Stage4测试完成：通过X，失败0`。
+6. 停止预览。
+7. 回到 `Canvas` 节点，在 Inspector 中移除 `Stage4DebugRunner`。
+8. 保存场景前再次确认只保留 `GameBootstrap`。

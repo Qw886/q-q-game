@@ -76,10 +76,17 @@ export class GameBootstrap extends Component {
       return;
     }
 
+    try {
+      this.gameSession = new GameSession(NORMAL_DIFFICULTY);
+    } catch (error) {
+      console.error('[Stage4] Failed to start normal mode.', error);
+      this.showMainMenu();
+      return;
+    }
+
     this.activeScreen = 'game';
     this.menuContainer.active = false;
     this.gameContainer.active = true;
-    this.gameSession = new GameSession(NORMAL_DIFFICULTY);
     this.boardView.setup(this.gameSession, () => this.showMainMenu(), () => this.restartNormalMode());
   }
 
@@ -98,7 +105,14 @@ export class GameBootstrap extends Component {
       return;
     }
 
-    this.gameSession = new GameSession(NORMAL_DIFFICULTY);
+    try {
+      this.gameSession = new GameSession(NORMAL_DIFFICULTY);
+    } catch (error) {
+      console.error('[Stage4] Failed to restart normal mode.', error);
+      this.showMainMenu();
+      return;
+    }
+
     this.boardView.setup(this.gameSession, () => this.showMainMenu(), () => this.restartNormalMode());
   }
 
