@@ -1,5 +1,5 @@
 import { _decorator, Color, Component, Label, Node, UITransform, Vec3 } from 'cc';
-import { GameSnapshot } from '../core/GameTypes';
+import type { GameSnapshot } from '../core/GameTypes';
 
 const { ccclass } = _decorator;
 
@@ -23,19 +23,19 @@ export class HudController extends Component {
 
   public updateSnapshot(snapshot: GameSnapshot): void {
     if (this.modeLabel) {
-      this.modeLabel.string = `模式：${snapshot.modeName}`;
+      this.modeLabel.string = `\u6a21\u5f0f\uff1a${snapshot.modeName}`;
     }
 
     if (this.remainingLabel) {
-      this.remainingLabel.string = `剩余：${snapshot.remainingTiles}`;
+      this.remainingLabel.string = `\u5269\u4f59\uff1a${snapshot.remainingTiles}`;
     }
 
     if (this.scoreLabel) {
-      this.scoreLabel.string = `分数：${snapshot.score}`;
+      this.scoreLabel.string = `\u5206\u6570\uff1a${snapshot.score}`;
     }
 
     if (this.timeLabel) {
-      this.timeLabel.string = `时间：${snapshot.remainingSeconds}`;
+      this.timeLabel.string = `\u65f6\u95f4\uff1a${snapshot.remainingSeconds}`;
       this.timeLabel.color = snapshot.remainingSeconds <= 5
         ? new Color(255, 96, 78, 255)
         : new Color(255, 255, 255, 255);
@@ -48,9 +48,9 @@ export class HudController extends Component {
     const transform = labelNode.addComponent(UITransform);
     const label = labelNode.addComponent(Label);
 
-    transform.setContentSize(180, height);
+    transform.setContentSize(190, height);
     labelNode.setPosition(x, 0, 0);
-    label.fontSize = Math.max(18, Math.floor(height * 0.26));
+    label.fontSize = Math.max(16, Math.floor(height * 0.24));
     label.lineHeight = label.fontSize + 6;
     label.color = new Color(255, 255, 255, 255);
     label.horizontalAlign = Label.HorizontalAlign.CENTER;

@@ -9,6 +9,7 @@ export interface DifficultyConfig {
   readonly columns: number;
   readonly tileCount: number;
   readonly roundTime: number;
+  readonly scoreMultiplier: number;
 }
 
 export interface TileData {
@@ -68,7 +69,7 @@ export interface GeneratedBoard {
   readonly solution: readonly SolutionStep[];
   readonly generationAttempts: number;
   readonly validationPassed: boolean;
-  readonly generationStrategy: 'BACKTRACKING' | 'FALLBACK' | 'FIXED';
+  readonly generationStrategy: 'BACKTRACKING' | 'FALLBACK' | 'FIXED' | 'LAYERED';
   readonly searchNodes: number;
   readonly backtrackCount: number;
   readonly restartCount: number;

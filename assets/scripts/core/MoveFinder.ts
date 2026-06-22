@@ -28,7 +28,7 @@ export class MoveFinder {
     return null;
   }
 
-  public findAllMoves(board: BoardState): LegalMove[] {
+  public findAllMoves(board: BoardState, maxResults?: number): LegalMove[] {
     const groups = this.groupTilesByType(board.getAllTiles());
     const moves: LegalMove[] = [];
 
@@ -44,6 +44,10 @@ export class MoveFinder {
               tileType,
               path,
             });
+
+            if (maxResults !== undefined && moves.length >= maxResults) {
+              return moves;
+            }
           }
         }
       }

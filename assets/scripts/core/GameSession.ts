@@ -1,4 +1,4 @@
-import { SCORE_CONFIG } from '../config/ScoreConfig';
+import { calculatePairScore } from '../config/ScoreConfig';
 import { BoardGenerator } from './BoardGenerator';
 import { BoardState } from './BoardState';
 import { DeadlockDetector } from './DeadlockDetector';
@@ -22,7 +22,7 @@ export class GameSession {
   public readonly solution: readonly SolutionStep[];
   public readonly generationAttempts: number;
   public readonly validationPassed: boolean;
-  public readonly generationStrategy: 'BACKTRACKING' | 'FALLBACK';
+  public readonly generationStrategy: GeneratedBoard['generationStrategy'];
   private readonly pathFinder = new LinkPathFinder();
   private readonly deadlockDetector = new DeadlockDetector();
   private readonly tiles: readonly TileData[];
@@ -165,7 +165,7 @@ export class GameSession {
 
     if (this.board.hasTile(first) && this.board.hasTile(second)) {
       const remainingSeconds = this.getDisplayedRemainingSeconds();
-      gainedScore = SCORE_CONFIG.pairBaseScore + remainingSeconds * SCORE_CONFIG.remainingSecondBonus;
+      gainedScore = calculatePairScore(remainingSeconds, this.config.scoreMultiplier);
 
       this.board.removeTiles(first, second);
       this.remainingTileCount = this.board.getRemainingCount();
@@ -219,7 +219,7 @@ export class GameSession {
   private logGenerationSummary(generatedBoard: GeneratedBoard): void {
     const metrics = generatedBoard.difficultyMetrics;
     console.info(
-      `[Stage4] seed=${generatedBoard.seed}, strategy=${generatedBoard.generationStrategy}, elapsedMs=${generatedBoard.generationElapsedMilliseconds}, skeletonMs=${generatedBoard.skeletonElapsedMilliseconds}, optimizationMs=${generatedBoard.assignmentOptimizationElapsedMilliseconds}, optimizationIterations=${generatedBoard.optimizationIterations}, openingMoves=${metrics.totalLegalMoves}, zeroTurnMoves=${metrics.zeroTurnMoves}, oneTurnMoves=${metrics.oneTurnMoves}, twoTurnMoves=${metrics.twoTurnMoves}, adjacentMatchingMoves=${metrics.adjacentMatchingMoves}, penaltyScore=${metrics.score.toFixed(1)}, firstTenStepsAverageMoves=${metrics.firstTenStepsAverageMoves.toFixed(1)}, accepted=${metrics.accepted}`,
+      `[Stage5] mode=${this.config.id}, seed=${generatedBoard.seed}, strategy=${generatedBoard.generationStrategy}, elapsedMs=${generatedBoard.generationElapsedMilliseconds}, skeletonMs=${generatedBoard.skeletonElapsedMilliseconds}, optimizationMs=${generatedBoard.assignmentOptimizationElapsedMilliseconds}, optimizationIterations=${generatedBoard.optimizationIterations}, openingMoves=${metrics.totalLegalMoves}, zeroTurnMoves=${metrics.zeroTurnMoves}, oneTurnMoves=${metrics.oneTurnMoves}, twoTurnMoves=${metrics.twoTurnMoves}, adjacentMatchingMoves=${metrics.adjacentMatchingMoves}, penaltyScore=${metrics.score.toFixed(1)}, firstTenStepsAverageMoves=${metrics.firstTenStepsAverageMoves.toFixed(1)}, accepted=${metrics.accepted}`,
     );
   }
 

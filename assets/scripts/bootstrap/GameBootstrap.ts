@@ -1,6 +1,7 @@
 import { _decorator, Canvas, Color, Component, Graphics, isValid, Node, UITransform } from 'cc';
-import { DIFFICULTIES, NORMAL_DIFFICULTY } from '../config/DifficultyConfig';
+import { DIFFICULTIES } from '../config/DifficultyConfig';
 import { GameSession } from '../core/GameSession';
+import type { DifficultyConfig } from '../core/GameTypes';
 import { BoardView } from '../view/BoardView';
 import { MainMenuController } from '../ui/MainMenuController';
 
@@ -14,6 +15,7 @@ export class GameBootstrap extends Component {
   private menuController: MainMenuController | null = null;
   private boardView: BoardView | null = null;
   private gameSession: GameSession | null = null;
+  private currentDifficulty: DifficultyConfig | null = null;
   private activeScreen: 'menu' | 'game' = 'menu';
   private lastRootWidth = 0;
   private lastRootHeight = 0;
@@ -43,6 +45,7 @@ export class GameBootstrap extends Component {
     this.menuController = null;
     this.boardView = null;
     this.gameSession = null;
+    this.currentDifficulty = null;
   }
 
   private buildRootUi(): void {
@@ -68,18 +71,19 @@ export class GameBootstrap extends Component {
     this.gameSession = null;
     this.menuContainer.active = true;
     this.gameContainer.active = false;
-    this.menuController.setup(DIFFICULTIES, () => this.startNormalMode());
+    this.menuController.setup(DIFFICULTIES, (difficulty) => this.startMode(difficulty));
   }
 
-  private startNormalMode(): void {
+  private startMode(difficulty: DifficultyConfig): void {
     if (!this.menuContainer || !this.gameContainer || !this.boardView) {
       return;
     }
 
     try {
-      this.gameSession = new GameSession(NORMAL_DIFFICULTY);
+      this.currentDifficulty = difficulty;
+      this.gameSession = new GameSession(difficulty);
     } catch (error) {
-      console.error('[Stage4] Failed to start normal mode.', error);
+      console.error(`[Stage5] Failed to start ${difficulty.id} mode.`, error);
       this.showMainMenu();
       return;
     }
@@ -87,7 +91,7 @@ export class GameBootstrap extends Component {
     this.activeScreen = 'game';
     this.menuContainer.active = false;
     this.gameContainer.active = true;
-    this.boardView.setup(this.gameSession, () => this.showMainMenu(), () => this.restartNormalMode());
+    this.boardView.setup(this.gameSession, () => this.showMainMenu(), () => this.restartCurrentMode());
   }
 
   private rebuildForCurrentSize(width: number, height: number): void {
@@ -100,20 +104,20 @@ export class GameBootstrap extends Component {
     }
   }
 
-  private restartNormalMode(): void {
-    if (!this.boardView) {
+  private restartCurrentMode(): void {
+    if (!this.boardView || !this.currentDifficulty) {
       return;
     }
 
     try {
-      this.gameSession = new GameSession(NORMAL_DIFFICULTY);
+      this.gameSession = new GameSession(this.currentDifficulty);
     } catch (error) {
-      console.error('[Stage4] Failed to restart normal mode.', error);
+      console.error(`[Stage5] Failed to restart ${this.currentDifficulty.id} mode.`, error);
       this.showMainMenu();
       return;
     }
 
-    this.boardView.setup(this.gameSession, () => this.showMainMenu(), () => this.restartNormalMode());
+    this.boardView.setup(this.gameSession, () => this.showMainMenu(), () => this.restartCurrentMode());
   }
 
   private createGameRoot(): Node {

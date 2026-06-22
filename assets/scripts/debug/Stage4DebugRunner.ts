@@ -1,7 +1,8 @@
 import { _decorator, Component } from 'cc';
 import { NORMAL_BOARD_DIFFICULTY_CONFIG } from '../config/BoardDifficultyConfig';
 import { NORMAL_DIFFICULTY } from '../config/DifficultyConfig';
-import { BoardGenerator, BOARD_GENERATION_CONFIG } from '../core/BoardGenerator';
+import { getTileTypeCounts } from '../config/TileTypeConfig';
+import { BoardGenerator } from '../core/BoardGenerator';
 import { BoardState } from '../core/BoardState';
 import { DeadlockDetector } from '../core/DeadlockDetector';
 import type { BoardTile, GeneratedBoard } from '../core/GameTypes';
@@ -122,12 +123,16 @@ class Stage4TestSuite {
       return `wrong tile count: ${generated.board.getRemainingCount()}`;
     }
 
-    if (counts.size !== BOARD_GENERATION_CONFIG.tileTypeCount) {
+    const configuredCounts = getTileTypeCounts(NORMAL_DIFFICULTY.id);
+
+    if (counts.size !== Object.keys(configuredCounts).length) {
       return `wrong type count: ${counts.size}`;
     }
 
-    for (const [tileType, count] of counts.entries()) {
-      if (count !== BOARD_GENERATION_CONFIG.copiesPerType) {
+    for (const [tileType, expectedCount] of Object.entries(configuredCounts)) {
+      const count = counts.get(tileType);
+
+      if (count !== expectedCount) {
         return `wrong copy count for ${tileType}: ${count}`;
       }
     }

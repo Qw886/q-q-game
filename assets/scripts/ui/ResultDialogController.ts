@@ -1,5 +1,5 @@
 import { _decorator, Color, Component, Graphics, Label, Node, UITransform } from 'cc';
-import { GameEndReason, GameSnapshot } from '../core/GameTypes';
+import type { GameEndReason, GameSnapshot } from '../core/GameTypes';
 
 const { ccclass } = _decorator;
 
@@ -31,17 +31,17 @@ export class ResultDialogController extends Component {
     graphics.rect(-width / 2, -height / 2, width, height);
     graphics.fill();
 
-    const panel = this.createPanel(Math.min(460, width * 0.78), Math.min(360, height * 0.48));
-    this.addPanelLabel(panel, 'Title', this.getTitle(reason), 0, 90, 34);
-    this.addPanelLabel(panel, 'Detail', this.getDetail(snapshot, reason), 0, 28, 24);
+    const panel = this.createPanel(Math.min(480, width * 0.82), Math.min(380, height * 0.5));
+    this.addPanelLabel(panel, 'Title', this.getTitle(reason), 0, 105, 34);
+    this.addPanelLabel(panel, 'Detail', this.getDetail(snapshot, reason), 0, 20, 22);
 
-    this.restartButton = this.createButton('重新开始', 180, 54);
-    this.restartButton.setPosition(-100, -92, 0);
+    this.restartButton = this.createButton('\u91cd\u65b0\u5f00\u59cb', 180, 54);
+    this.restartButton.setPosition(-100, -105, 0);
     this.restartButton.on(Node.EventType.TOUCH_END, this.handleRestart, this);
     panel.addChild(this.restartButton);
 
-    this.menuButton = this.createButton('返回菜单', 180, 54);
-    this.menuButton.setPosition(100, -92, 0);
+    this.menuButton = this.createButton('\u8fd4\u56de\u83dc\u5355', 180, 54);
+    this.menuButton.setPosition(100, -105, 0);
     this.menuButton.on(Node.EventType.TOUCH_END, this.handleMenu, this);
     panel.addChild(this.menuButton);
 
@@ -99,11 +99,11 @@ export class ResultDialogController extends Component {
     const labelNode = new Node(name);
     const transform = labelNode.addComponent(UITransform);
     const label = labelNode.addComponent(Label);
-    transform.setContentSize(360, Math.max(92, fontSize * 4.5));
+    transform.setContentSize(390, Math.max(110, fontSize * 5));
     labelNode.setPosition(x, y, 0);
     label.string = text;
     label.fontSize = fontSize;
-    label.lineHeight = fontSize + 8;
+    label.lineHeight = fontSize + 7;
     label.color = new Color(48, 39, 28, 255);
     label.horizontalAlign = Label.HorizontalAlign.CENTER;
     label.verticalAlign = Label.VerticalAlign.CENTER;
@@ -163,10 +163,12 @@ export class ResultDialogController extends Component {
   }
 
   private getDetail(snapshot: GameSnapshot, reason: GameEndReason): string {
+    const prefix = `${snapshot.modeName}\u6a21\u5f0f`;
+
     if (reason === 'deadlock') {
-      return `\u672c\u5c40\u5931\u8d25\n\u6700\u7ec8\u5206\u6570\uff1a${snapshot.score}\n\u5269\u4f59\u9ebb\u5c06\uff1a${snapshot.remainingTiles}`;
+      return `${prefix}\n\u672c\u5c40\u5931\u8d25\n\u6700\u7ec8\u5206\u6570\uff1a${snapshot.score}\n\u5269\u4f59\u9ebb\u5c06\uff1a${snapshot.remainingTiles}`;
     }
 
-    return `\u6700\u7ec8\u5206\u6570\uff1a${snapshot.score}\n\u5269\u4f59\u9ebb\u5c06\uff1a${snapshot.remainingTiles}`;
+    return `${prefix}\n\u6700\u7ec8\u5206\u6570\uff1a${snapshot.score}\n\u5269\u4f59\u9ebb\u5c06\uff1a${snapshot.remainingTiles}`;
   }
 }

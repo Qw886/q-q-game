@@ -1,5 +1,5 @@
-import { NORMAL_BOARD_DIFFICULTY_CONFIG } from '../config/BoardDifficultyConfig';
-import { NORMAL_TILE_TYPES } from '../config/TileTypeConfig';
+import { getBoardDifficultyConfig } from '../config/BoardDifficultyConfig';
+import { getTileTypeCounts } from '../config/TileTypeConfig';
 import { BoardDifficultyEvaluator } from './BoardDifficultyEvaluator';
 import { BoardState } from './BoardState';
 import { SeededRandom } from './SeededRandom';
@@ -28,18 +28,19 @@ export class TileAssignmentOptimizer {
     random: SeededRandom,
   ): TileAssignmentOptimizationResult {
     const startedAt = Date.now();
-    let currentTypes = this.createInitialAssignment(random);
+    const difficultyConfig = getBoardDifficultyConfig(config.id);
+    let currentTypes = this.createInitialAssignment(config, random);
     let current = this.createResult(config, skeletonPairs, currentTypes, 0, startedAt);
     let best = current;
     let iterations = 0;
 
-    for (; iterations < NORMAL_BOARD_DIFFICULTY_CONFIG.maxOptimizationIterations; iterations += 1) {
+    for (; iterations < difficultyConfig.maxOptimizationIterations; iterations += 1) {
       if (current.difficultyMetrics.accepted) {
         best = current;
         break;
       }
 
-      if (Date.now() - startedAt > NORMAL_BOARD_DIFFICULTY_CONFIG.maxOptimizationMilliseconds) {
+      if (Date.now() - startedAt > difficultyConfig.maxOptimizationMilliseconds) {
         break;
       }
 
@@ -61,7 +62,7 @@ export class TileAssignmentOptimizer {
 
       const candidate = this.createResult(config, skeletonPairs, candidateTypes, iterations + 1, startedAt);
       const improved = candidate.difficultyMetrics.score <= current.difficultyMetrics.score;
-      const acceptWorse = random.next() < NORMAL_BOARD_DIFFICULTY_CONFIG.randomWorseAssignmentAcceptRate;
+      const acceptWorse = random.next() < difficultyConfig.randomWorseAssignmentAcceptRate;
 
       if (improved || acceptWorse) {
         currentTypes = candidateTypes;
@@ -80,11 +81,18 @@ export class TileAssignmentOptimizer {
     };
   }
 
-  private createInitialAssignment(random: SeededRandom): string[] {
+  private createInitialAssignment(config: DifficultyConfig, random: SeededRandom): string[] {
     const pairTypes: string[] = [];
+    const counts = getTileTypeCounts(config.id);
 
-    for (const tileType of NORMAL_TILE_TYPES) {
-      pairTypes.push(tileType, tileType);
+    for (const tileType of Object.keys(counts)) {
+      for (let index = 0; index < counts[tileType] / 2; index += 1) {
+        pairTypes.push(tileType);
+      }
+    }
+
+    if (pairTypes.length === 0) {
+      throw new Error(`No tile pairs configured for difficulty: ${config.id}`);
     }
 
     return random.shuffle(pairTypes);
@@ -99,6 +107,10 @@ export class TileAssignmentOptimizer {
   ): TileAssignmentOptimizationResult {
     const boardTiles: BoardTile[] = [];
     const solution: SolutionStep[] = [];
+
+    if (tileTypes.length !== skeletonPairs.length) {
+      throw new Error(`Tile pair count ${tileTypes.length} does not match skeleton pair count ${skeletonPairs.length}.`);
+    }
 
     for (let index = 0; index < skeletonPairs.length; index += 1) {
       const pair = skeletonPairs[index];

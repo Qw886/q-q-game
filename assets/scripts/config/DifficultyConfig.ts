@@ -3,27 +3,30 @@ import type { DifficultyConfig, DifficultyId } from '../core/GameTypes';
 export const DIFFICULTIES: readonly DifficultyConfig[] = [
   {
     id: 'normal',
-    name: '普通',
+    name: '\u666e\u901a',
     rows: 10,
     columns: 8,
     tileCount: 80,
     roundTime: 20,
+    scoreMultiplier: 1,
   },
   {
     id: 'medium',
-    name: '中等',
+    name: '\u4e2d\u7b49',
     rows: 12,
     columns: 10,
     tileCount: 120,
     roundTime: 14,
+    scoreMultiplier: 1.5,
   },
   {
     id: 'hard',
-    name: '困难',
+    name: '\u56f0\u96be',
     rows: 16,
     columns: 12,
     tileCount: 192,
     roundTime: 9,
+    scoreMultiplier: 2,
   },
 ];
 

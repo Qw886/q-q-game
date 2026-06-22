@@ -1,20 +1,16 @@
 import { _decorator, Color, Component, Graphics, Label, Node, UITransform } from 'cc';
-import { DifficultyConfig, DifficultyId } from '../core/GameTypes';
+import type { DifficultyConfig, DifficultyId } from '../core/GameTypes';
 
 const { ccclass } = _decorator;
 
 @ccclass('MainMenuController')
 export class MainMenuController extends Component {
   private readonly buttonBindings: ButtonBinding[] = [];
-  private readonly hideUnavailableMessageCallback = (): void => this.hideUnavailableMessage();
-  private messageNode: Node | null = null;
-  private messageLabel: Label | null = null;
-  private onStartNormal: (() => void) | null = null;
+  private onStartMode: ((difficulty: DifficultyConfig) => void) | null = null;
   private initialized = false;
 
-  public setup(difficulties: readonly DifficultyConfig[], onStartNormal: () => void): void {
-    this.onStartNormal = onStartNormal;
-    this.hideUnavailableMessage();
+  public setup(difficulties: readonly DifficultyConfig[], onStartMode: (difficulty: DifficultyConfig) => void): void {
+    this.onStartMode = onStartMode;
 
     if (this.initialized) {
       return;
@@ -24,17 +20,11 @@ export class MainMenuController extends Component {
     this.createTitle(rootSize.height);
     this.createModeButtons(difficulties);
     this.createScoreHint(rootSize.height);
-    this.createMessage(rootSize.height);
     this.initialized = true;
   }
 
   protected onDestroy(): void {
-    this.cancelUnavailableMessageTimer();
     this.clearButtonEvents();
-  }
-
-  protected onDisable(): void {
-    this.cancelUnavailableMessageTimer();
   }
 
   private createTitle(height: number): void {
@@ -44,7 +34,7 @@ export class MainMenuController extends Component {
 
     transform.setContentSize(520, 92);
     titleNode.setPosition(0, height / 2 - 170, 0);
-    label.string = '雀牌连线';
+    label.string = '\u96c0\u724c\u8fde\u7ebf';
     label.fontSize = 52;
     label.lineHeight = 60;
     label.color = new Color(255, 255, 255, 255);
@@ -59,29 +49,11 @@ export class MainMenuController extends Component {
       const buttonNode = this.createModeButton(difficulty);
       const callback = (): void => this.handleModeSelected(difficulty.id);
 
-      buttonNode.setPosition(0, 110 - index * 110, 0);
+      buttonNode.setPosition(0, 128 - index * 116, 0);
       buttonNode.on(Node.EventType.TOUCH_END, callback, this);
-      this.buttonBindings.push({ node: buttonNode, callback });
+      this.buttonBindings.push({ node: buttonNode, callback, difficultyId: difficulty.id, difficulty });
       this.node.addChild(buttonNode);
     });
-  }
-
-  private createMessage(height: number): void {
-    this.messageNode = new Node('Message');
-    const transform = this.messageNode.addComponent(UITransform);
-    this.messageLabel = this.messageNode.addComponent(Label);
-
-    transform.setContentSize(560, 48);
-    this.messageNode.setPosition(0, Math.max(-height / 2 + 45, -300), 0);
-    this.messageNode.active = false;
-    this.messageLabel.string = '该模式将在后续阶段开放';
-    this.messageLabel.fontSize = 22;
-    this.messageLabel.lineHeight = 28;
-    this.messageLabel.color = new Color(255, 232, 177, 255);
-    this.messageLabel.horizontalAlign = Label.HorizontalAlign.CENTER;
-    this.messageLabel.verticalAlign = Label.VerticalAlign.CENTER;
-
-    this.node.addChild(this.messageNode);
   }
 
   private createScoreHint(height: number): void {
@@ -89,11 +61,11 @@ export class MainMenuController extends Component {
     const transform = hintNode.addComponent(UITransform);
     const label = hintNode.addComponent(Label);
 
-    transform.setContentSize(560, 52);
-    hintNode.setPosition(0, Math.max(-height / 2 + 90, -230), 0);
-    label.string = '计分：每对基础100分，剩余每秒奖励10分';
-    label.fontSize = 20;
-    label.lineHeight = 26;
+    transform.setContentSize(620, 64);
+    hintNode.setPosition(0, Math.max(-height / 2 + 96, -260), 0);
+    label.string = '\u8ba1\u5206\uff1a\u6bcf\u5bf9\u57fa\u7840100\u5206\uff0c\u5269\u4f59\u6bcf\u79d2\u5956\u52b110\u5206\uff0c\u518d\u6309\u6a21\u5f0f\u500d\u7387\u8ba1\u7b97';
+    label.fontSize = 19;
+    label.lineHeight = 25;
     label.color = new Color(230, 245, 210, 255);
     label.horizontalAlign = Label.HorizontalAlign.CENTER;
     label.verticalAlign = Label.VerticalAlign.CENTER;
@@ -102,21 +74,17 @@ export class MainMenuController extends Component {
   }
 
   private handleModeSelected(id: DifficultyId): void {
-    if (id === 'normal') {
-      this.hideUnavailableMessage();
-      if (this.onStartNormal) {
-        this.onStartNormal();
-      }
-      return;
-    }
+    const binding = this.buttonBindings.find((item) => item.difficultyId === id);
 
-    this.showUnavailableMessage();
+    if (binding?.difficulty && this.onStartMode) {
+      this.onStartMode(binding.difficulty);
+    }
   }
 
   private createModeButton(config: DifficultyConfig): Node {
-    const width = 430;
-    const height = 82;
-    const buttonNode = new Node(`${config.name}ModeButton`);
+    const width = 440;
+    const height = 88;
+    const buttonNode = new Node(`${config.id}ModeButton`);
     const transform = buttonNode.addComponent(UITransform);
     const graphics = buttonNode.addComponent(Graphics);
 
@@ -128,7 +96,13 @@ export class MainMenuController extends Component {
     graphics.fill();
     graphics.stroke();
 
-    this.addButtonText(buttonNode, `${config.name}模式`, `${config.tileCount}张麻将 · ${config.roundTime}秒`, width, height);
+    this.addButtonText(
+      buttonNode,
+      `${config.name}\u6a21\u5f0f`,
+      `${config.tileCount}\u5f20\u9ebb\u5c06 \u00b7 ${config.roundTime}\u79d2 \u00b7 ${config.scoreMultiplier.toFixed(1)}x`,
+      width,
+      height,
+    );
 
     return buttonNode;
   }
@@ -146,8 +120,8 @@ export class MainMenuController extends Component {
 
     transform.setContentSize(width, height);
     label.string = `${title}\n${subtitle}`;
-    label.fontSize = 24;
-    label.lineHeight = 31;
+    label.fontSize = 23;
+    label.lineHeight = 30;
     label.color = new Color(54, 43, 30, 255);
     label.horizontalAlign = Label.HorizontalAlign.CENTER;
     label.verticalAlign = Label.VerticalAlign.CENTER;
@@ -161,10 +135,7 @@ export class MainMenuController extends Component {
     }
 
     this.buttonBindings.length = 0;
-    this.cancelUnavailableMessageTimer();
-    this.messageNode = null;
-    this.messageLabel = null;
-    this.onStartNormal = null;
+    this.onStartMode = null;
     this.initialized = false;
   }
 
@@ -174,30 +145,6 @@ export class MainMenuController extends Component {
     }
 
     node.off(Node.EventType.TOUCH_END, callback, this);
-  }
-
-  private showUnavailableMessage(): void {
-    this.cancelUnavailableMessageTimer();
-
-    if (!this.messageNode || !this.messageLabel) {
-      return;
-    }
-
-    this.messageLabel.string = '该模式将在后续阶段开放';
-    this.messageNode.active = true;
-    this.scheduleOnce(this.hideUnavailableMessageCallback, 2);
-  }
-
-  private hideUnavailableMessage(): void {
-    this.cancelUnavailableMessageTimer();
-
-    if (this.messageNode && this.messageNode.isValid) {
-      this.messageNode.active = false;
-    }
-  }
-
-  private cancelUnavailableMessageTimer(): void {
-    this.unschedule(this.hideUnavailableMessageCallback);
   }
 
   private getRootSize(): { width: number; height: number } {
@@ -212,4 +159,6 @@ export class MainMenuController extends Component {
 interface ButtonBinding {
   node: Node | null;
   readonly callback: () => void;
+  readonly difficultyId: DifficultyId;
+  readonly difficulty: DifficultyConfig;
 }
