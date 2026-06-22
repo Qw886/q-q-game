@@ -1,104 +1,177 @@
 import { _decorator, Color, Component, Graphics, Label, Node, UITransform, Vec3 } from 'cc';
-import { DifficultyConfig, TileData } from '../core/GameTypes';
+import { GameSession } from '../core/GameSession';
+import { GameEndReason, GridPoint, TileClickResult, TileData } from '../core/GameTypes';
+import { HudController } from '../ui/HudController';
+import { ResultDialogController } from '../ui/ResultDialogController';
+import { BoardGridMetrics, LinkLineView } from './LinkLineView';
 import { TileView } from './TileView';
 
 const { ccclass } = _decorator;
 
-const TILE_LABELS: readonly string[] = [
-  '一万',
-  '二万',
-  '三万',
-  '四万',
-  '五万',
-  '一筒',
-  '二筒',
-  '三筒',
-  '四筒',
-  '五筒',
-  '一条',
-  '二条',
-  '三条',
-  '四条',
-  '五条',
-  '东',
-  '南',
-  '西',
-  '北',
-  '中',
-];
+interface BoardTileBinding {
+  readonly node: Node;
+  readonly view: TileView;
+  readonly point: GridPoint;
+  readonly onClick: () => void;
+}
 
 @ccclass('BoardView')
 export class BoardView extends Component {
   private hudContainer: Node | null = null;
   private boardContainer: Node | null = null;
   private bottomContainer: Node | null = null;
+  private resultContainer: Node | null = null;
+  private boardNode: Node | null = null;
+  private linkLineNode: Node | null = null;
+  private linkLineView: LinkLineView | null = null;
+  private scorePopupNode: Node | null = null;
+  private scorePopupLabel: Label | null = null;
+  private hudController: HudController | null = null;
+  private resultDialog: ResultDialogController | null = null;
   private backButtonNode: Node | null = null;
+  private session: GameSession | null = null;
   private onBack: (() => void) | null = null;
+  private onRestart: (() => void) | null = null;
+  private readonly tileBindings: BoardTileBinding[] = [];
+  private metrics: BoardGridMetrics | null = null;
+  private lineClearScheduled = false;
+  private finishRemovalScheduled = false;
 
-  public setup(config: DifficultyConfig, onBack: () => void): void {
-    this.clearBackButtonEvent();
+  public setup(session: GameSession, onBack: () => void, onRestart: () => void): void {
+    this.cleanupDynamicState();
+    this.session = session;
     this.onBack = onBack;
+    this.onRestart = onRestart;
     this.node.removeAllChildren();
 
-    const rootSize = this.getRootSize();
-    const layout = this.calculateLayout(rootSize.width, rootSize.height, config);
+    this.createLayout();
+    this.updateHud();
+  }
 
-    this.createHudContainer(config, layout);
-    this.createBoardContainer(config, layout);
-    this.createBottomContainer(layout);
+  public tick(deltaSeconds: number): void {
+    if (!this.session) {
+      return;
+    }
+
+    const endReason = this.session.update(deltaSeconds);
+    this.updateHud();
+
+    if (endReason) {
+      this.handleGameEnded(endReason);
+    }
+  }
+
+  public refreshLayout(): void {
+    if (!this.session) {
+      return;
+    }
+
+    this.session.cancelPendingAction();
+    this.setup(this.session, this.onBack ?? (() => undefined), this.onRestart ?? (() => undefined));
+  }
+
+  public stopGame(): void {
+    this.cleanupDynamicState();
   }
 
   protected onDestroy(): void {
-    this.clearBackButtonEvent();
+    this.cleanupDynamicState();
   }
 
-  private createHudContainer(config: DifficultyConfig, layout: GameLayout): void {
+  private createLayout(): void {
+    const session = this.requireSession();
+    const rootSize = this.getRootSize();
+    const layout = this.calculateLayout(rootSize.width, rootSize.height, session.config.rows, session.config.columns);
+
+    this.createHudContainer(layout);
+    this.createBoardContainer(session.getTiles(), layout);
+    this.createBottomContainer(layout);
+    this.createResultContainer(layout);
+  }
+
+  private createHudContainer(layout: GameLayout): void {
     this.hudContainer = new Node('HudContainer');
     const transform = this.hudContainer.addComponent(UITransform);
     transform.setContentSize(layout.width, layout.hudHeight);
     this.hudContainer.setPosition(0, layout.height / 2 - layout.hudHeight / 2, 0);
-
-    const labelNode = new Node('StatusText');
-    const labelTransform = labelNode.addComponent(UITransform);
-    const label = labelNode.addComponent(Label);
-
-    labelTransform.setContentSize(layout.width - layout.sidePadding * 2, layout.hudHeight);
-    label.string = `模式：${config.name}    剩余：${config.tileCount}    分数：0    时间：${config.roundTime}`;
-    label.fontSize = layout.statusFontSize;
-    label.lineHeight = layout.statusFontSize + 6;
-    label.color = new Color(255, 255, 255, 255);
-    label.horizontalAlign = Label.HorizontalAlign.CENTER;
-    label.verticalAlign = Label.VerticalAlign.CENTER;
-
-    this.hudContainer.addChild(labelNode);
+    this.hudController = this.hudContainer.addComponent(HudController);
+    this.hudController.setup(layout.width, layout.hudHeight);
     this.node.addChild(this.hudContainer);
   }
 
-  private createBoardContainer(config: DifficultyConfig, layout: GameLayout): void {
+  private createBoardContainer(tiles: readonly TileData[], layout: GameLayout): void {
     this.boardContainer = new Node('BoardContainer');
     const containerTransform = this.boardContainer.addComponent(UITransform);
     containerTransform.setContentSize(layout.width, layout.boardAreaHeight);
     this.boardContainer.setPosition(0, layout.boardCenterY, 0);
 
-    const boardNode = new Node('StaticBoard');
-    const boardTransform = boardNode.addComponent(UITransform);
+    this.boardNode = new Node('PlayableBoard');
+    const boardTransform = this.boardNode.addComponent(UITransform);
     boardTransform.setContentSize(layout.boardWidth, layout.boardHeight);
-    boardNode.setPosition(0, 0, 0);
+    this.boardNode.setPosition(0, 0, 0);
 
-    const tiles = this.createStaticTiles(config);
+    this.metrics = {
+      rows: layout.rows,
+      columns: layout.columns,
+      tileWidth: layout.tileWidth,
+      tileHeight: layout.tileHeight,
+      gap: layout.gap,
+      boardWidth: layout.boardWidth,
+      boardHeight: layout.boardHeight,
+    };
+
     for (const tile of tiles) {
-      const tileNode = new Node(`Tile_${tile.row}_${tile.column}`);
-      const tileView = tileNode.addComponent(TileView);
-      const x = -layout.boardWidth / 2 + layout.tileWidth / 2 + tile.column * (layout.tileWidth + layout.gap);
-      const y = layout.boardHeight / 2 - layout.tileHeight / 2 - tile.row * (layout.tileHeight + layout.gap);
+      if (!this.session?.board.hasTile(tile)) {
+        continue;
+      }
 
-      tileNode.setPosition(new Vec3(x, y, 0));
-      tileView.setup(tile, layout.tileWidth, layout.tileHeight);
-      boardNode.addChild(tileNode);
+      this.createTile(tile, layout);
     }
 
-    this.boardContainer.addChild(boardNode);
+    this.linkLineNode = new Node('LinkLine');
+    this.linkLineView = this.linkLineNode.addComponent(LinkLineView);
+    this.linkLineView.setup(layout.boardWidth, layout.boardHeight);
+    this.boardNode.addChild(this.linkLineNode);
+    this.createScorePopup(layout);
+
+    this.boardContainer.addChild(this.boardNode);
     this.node.addChild(this.boardContainer);
+  }
+
+  private createScorePopup(layout: GameLayout): void {
+    this.scorePopupNode = new Node('ScorePopup');
+    const transform = this.scorePopupNode.addComponent(UITransform);
+    this.scorePopupLabel = this.scorePopupNode.addComponent(Label);
+
+    transform.setContentSize(220, 48);
+    this.scorePopupNode.setPosition(0, layout.boardHeight / 2 + 28, 0);
+    this.scorePopupNode.active = false;
+    this.scorePopupLabel.string = '';
+    this.scorePopupLabel.fontSize = 28;
+    this.scorePopupLabel.lineHeight = 34;
+    this.scorePopupLabel.color = new Color(255, 230, 92, 255);
+    this.scorePopupLabel.horizontalAlign = Label.HorizontalAlign.CENTER;
+    this.scorePopupLabel.verticalAlign = Label.VerticalAlign.CENTER;
+    this.boardNode?.addChild(this.scorePopupNode);
+  }
+
+  private createTile(tile: TileData, layout: GameLayout): void {
+    if (!this.boardNode) {
+      return;
+    }
+
+    const tileNode = new Node(`Tile_${tile.row}_${tile.column}`);
+    const tileView = tileNode.addComponent(TileView);
+    const point = { row: tile.row, column: tile.column };
+    const onClick = (): void => this.handleTileClicked(point);
+    const x = -layout.boardWidth / 2 + layout.tileWidth / 2 + tile.column * (layout.tileWidth + layout.gap);
+    const y = layout.boardHeight / 2 - layout.tileHeight / 2 - tile.row * (layout.tileHeight + layout.gap);
+
+    tileNode.setPosition(new Vec3(x, y, 0));
+    tileView.setup(tile, layout.tileWidth, layout.tileHeight);
+    tileNode.on(Node.EventType.TOUCH_END, onClick, this);
+    this.tileBindings.push({ node: tileNode, view: tileView, point, onClick });
+    this.boardNode.addChild(tileNode);
   }
 
   private createBottomContainer(layout: GameLayout): void {
@@ -114,29 +187,184 @@ export class BoardView extends Component {
     this.node.addChild(this.bottomContainer);
   }
 
-  private createStaticTiles(config: DifficultyConfig): TileData[] {
-    const tiles: TileData[] = [];
+  private createResultContainer(layout: GameLayout): void {
+    this.resultContainer = new Node('ResultContainer');
+    const transform = this.resultContainer.addComponent(UITransform);
+    transform.setContentSize(layout.width, layout.height);
+    this.resultContainer.setPosition(0, 0, 0);
+    this.resultDialog = this.resultContainer.addComponent(ResultDialogController);
+    this.resultContainer.active = false;
+    this.node.addChild(this.resultContainer);
+  }
 
-    // 当前阶段只做固定循环占位麻将，不做随机生成和可解性校验。
-    for (let row = 0; row < config.rows; row += 1) {
-      for (let column = 0; column < config.columns; column += 1) {
-        const id = row * config.columns + column;
-        tiles.push({
-          id,
-          row,
-          column,
-          label: TILE_LABELS[id % TILE_LABELS.length],
-        });
-      }
+  private handleTileClicked(point: GridPoint): void {
+    if (!this.session) {
+      return;
     }
 
-    return tiles;
+    const result = this.session.handleTileClick(point);
+    this.applyClickResult(result);
+    this.updateHud();
+  }
+
+  private applyClickResult(result: TileClickResult): void {
+    switch (result.kind) {
+      case 'ignored':
+        return;
+      case 'selected':
+        this.clearAllTileFeedback();
+        this.getTileView(result.point)?.setSelected(true);
+        return;
+      case 'deselected':
+        this.getTileView(result.point)?.clearFeedback();
+        return;
+      case 'typeMismatch':
+        this.getTileView(result.previous)?.clearFeedback();
+        this.getTileView(result.selected)?.setSelected(true);
+        return;
+      case 'blocked':
+        this.showFailureFeedback(result.previous, result.selected);
+        return;
+      case 'connected':
+        this.showConnectedFeedback(result);
+        return;
+      default:
+        return;
+    }
+  }
+
+  private showFailureFeedback(first: GridPoint, second: GridPoint): void {
+    this.getTileView(first)?.showFailure();
+    this.getTileView(second)?.showFailure();
+    this.scheduleOnce(() => {
+      this.getTileView(first)?.clearFeedback();
+      this.getTileView(second)?.setSelected(true);
+    }, 0.25);
+  }
+
+  private showConnectedFeedback(result: Extract<TileClickResult, { kind: 'connected' }>): void {
+    if (!this.metrics || !this.linkLineView || !this.session) {
+      return;
+    }
+
+    this.clearAllTileFeedback();
+    this.linkLineView.drawPath(result.path.points, this.metrics);
+    this.lineClearScheduled = true;
+    this.finishRemovalScheduled = true;
+
+    this.scheduleOnce(() => {
+      this.lineClearScheduled = false;
+      this.linkLineView?.clear();
+    }, 0.28);
+
+    this.scheduleOnce(() => {
+      this.finishRemovalScheduled = false;
+      this.finishPairRemoval(result.first, result.second);
+    }, 0.3);
+  }
+
+  private finishPairRemoval(first: GridPoint, second: GridPoint): void {
+    if (!this.session) {
+      return;
+    }
+
+    this.getTileView(first)?.markRemoved();
+    this.getTileView(second)?.markRemoved();
+    const gainedScore = this.session.completePairRemoval(first, second);
+    this.showScorePopup(gainedScore);
+    this.updateHud();
+
+    if (this.session.endReason) {
+      this.handleGameEnded(this.session.endReason);
+    }
+  }
+
+  private handleGameEnded(reason: GameEndReason): void {
+    if (!this.session || !this.resultDialog || !this.resultContainer) {
+      return;
+    }
+
+    this.clearAllTileFeedback();
+    this.linkLineView?.clear();
+    this.resultContainer.active = true;
+    this.resultDialog.show(
+      this.session.getSnapshot(),
+      reason,
+      () => this.handleRestartButton(),
+      () => this.handleBackButton(),
+      this.getRootSize().width,
+      this.getRootSize().height,
+    );
+  }
+
+  private handleRestartButton(): void {
+    if (this.onRestart) {
+      this.onRestart();
+    }
   }
 
   private handleBackButton(): void {
+    this.cleanupDynamicState();
     if (this.onBack) {
       this.onBack();
     }
+  }
+
+  private updateHud(): void {
+    if (this.session && this.hudController) {
+      this.hudController.updateSnapshot(this.session.getSnapshot());
+    }
+  }
+
+  private showScorePopup(score: number): void {
+    if (score <= 0 || !this.scorePopupNode || !this.scorePopupLabel) {
+      return;
+    }
+
+    this.scorePopupLabel.string = `+${score}`;
+    this.scorePopupNode.active = true;
+    this.scheduleOnce(() => {
+      if (this.scorePopupNode?.isValid) {
+        this.scorePopupNode.active = false;
+      }
+    }, 0.8);
+  }
+
+  private getTileView(point: GridPoint): TileView | null {
+    const binding = this.tileBindings.find((item) => this.isSamePoint(item.point, point));
+
+    return binding?.view ?? null;
+  }
+
+  private clearAllTileFeedback(): void {
+    for (const binding of this.tileBindings) {
+      if (binding.node.isValid && binding.node.active) {
+        binding.view.clearFeedback();
+      }
+    }
+  }
+
+  private cleanupDynamicState(): void {
+    this.unscheduleAllCallbacks();
+    this.lineClearScheduled = false;
+    this.finishRemovalScheduled = false;
+    this.clearTileEvents();
+    this.clearBackButtonEvent();
+    this.linkLineView?.clear();
+    if (this.scorePopupNode?.isValid) {
+      this.scorePopupNode.active = false;
+    }
+    this.resultDialog?.hide();
+  }
+
+  private clearTileEvents(): void {
+    for (const binding of this.tileBindings) {
+      if (binding.node.isValid) {
+        binding.node.off(Node.EventType.TOUCH_END, binding.onClick, this);
+      }
+    }
+
+    this.tileBindings.length = 0;
   }
 
   private clearBackButtonEvent(): void {
@@ -183,7 +411,7 @@ export class BoardView extends Component {
     return { width, height };
   }
 
-  private calculateLayout(width: number, height: number, config: DifficultyConfig): GameLayout {
+  private calculateLayout(width: number, height: number, rows: number, columns: number): GameLayout {
     const hudHeight = this.clamp(height * 0.1, 64, 128);
     const bottomHeight = this.clamp(height * 0.12, 76, 150);
     const boardAreaHeight = Math.max(120, height - hudHeight - bottomHeight);
@@ -193,19 +421,19 @@ export class BoardView extends Component {
     const availableWidth = Math.max(120, width - sidePadding * 2);
     const availableHeight = Math.max(120, boardAreaHeight - verticalPadding * 2);
     const tileAspect = 3 / 4;
-
-    // 先分别按宽度和高度推导单张牌尺寸，再取较小值，保证整盘完整显示且不与上下区域重叠。
-    const widthLimitedTileWidth = (availableWidth - gap * (config.columns - 1)) / config.columns;
-    const heightLimitedTileWidth = ((availableHeight - gap * (config.rows - 1)) / config.rows) * tileAspect;
+    const widthLimitedTileWidth = (availableWidth - gap * (columns - 1)) / columns;
+    const heightLimitedTileWidth = ((availableHeight - gap * (rows - 1)) / rows) * tileAspect;
     const tileWidth = Math.floor(Math.max(24, Math.min(widthLimitedTileWidth, heightLimitedTileWidth)));
     const tileHeight = Math.floor(tileWidth / tileAspect);
-    const boardWidth = tileWidth * config.columns + gap * (config.columns - 1);
-    const boardHeight = tileHeight * config.rows + gap * (config.rows - 1);
+    const boardWidth = tileWidth * columns + gap * (columns - 1);
+    const boardHeight = tileHeight * rows + gap * (rows - 1);
     const boardCenterY = -height / 2 + bottomHeight + boardAreaHeight / 2;
 
     return {
       width,
       height,
+      rows,
+      columns,
       hudHeight,
       bottomHeight,
       boardAreaHeight,
@@ -218,8 +446,19 @@ export class BoardView extends Component {
       boardHeight,
       buttonWidth: this.clamp(width * 0.34, 180, 260),
       buttonHeight: this.clamp(bottomHeight * 0.52, 48, 68),
-      statusFontSize: this.clamp(width * 0.035, 18, 30),
     };
+  }
+
+  private requireSession(): GameSession {
+    if (!this.session) {
+      throw new Error('BoardView requires a GameSession before layout.');
+    }
+
+    return this.session;
+  }
+
+  private isSamePoint(first: GridPoint, second: GridPoint): boolean {
+    return first.row === second.row && first.column === second.column;
   }
 
   private clamp(value: number, min: number, max: number): number {
@@ -230,6 +469,8 @@ export class BoardView extends Component {
 interface GameLayout {
   readonly width: number;
   readonly height: number;
+  readonly rows: number;
+  readonly columns: number;
   readonly hudHeight: number;
   readonly bottomHeight: number;
   readonly boardAreaHeight: number;
@@ -242,5 +483,4 @@ interface GameLayout {
   readonly boardHeight: number;
   readonly buttonWidth: number;
   readonly buttonHeight: number;
-  readonly statusFontSize: number;
 }

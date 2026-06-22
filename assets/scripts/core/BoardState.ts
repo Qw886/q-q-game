@@ -27,6 +27,15 @@ export class BoardState {
     return this.tilesByPosition.has(this.getKey(point));
   }
 
+  public removeTile(point: GridPoint): void {
+    this.tilesByPosition.delete(this.getKey(point));
+  }
+
+  public removeTiles(first: GridPoint, second: GridPoint): void {
+    this.removeTile(first);
+    this.removeTile(second);
+  }
+
   public isInsideBoard(point: GridPoint): boolean {
     return point.row >= 0 && point.row < this.rows && point.column >= 0 && point.column < this.columns;
   }
@@ -78,4 +87,3 @@ export class BoardState {
     return `${point.row},${point.column}`;
   }
 }
-

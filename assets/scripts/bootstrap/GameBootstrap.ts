@@ -1,5 +1,6 @@
 import { _decorator, Canvas, Color, Component, Graphics, isValid, Node, UITransform } from 'cc';
 import { DIFFICULTIES, NORMAL_DIFFICULTY } from '../config/DifficultyConfig';
+import { GameSession } from '../core/GameSession';
 import { BoardView } from '../view/BoardView';
 import { MainMenuController } from '../ui/MainMenuController';
 
@@ -12,6 +13,7 @@ export class GameBootstrap extends Component {
   private gameContainer: Node | null = null;
   private menuController: MainMenuController | null = null;
   private boardView: BoardView | null = null;
+  private gameSession: GameSession | null = null;
   private activeScreen: 'menu' | 'game' = 'menu';
   private lastRootWidth = 0;
   private lastRootHeight = 0;
@@ -21,15 +23,17 @@ export class GameBootstrap extends Component {
     this.showMainMenu();
   }
 
-  protected update(): void {
+  protected update(deltaTime: number): void {
     const rootSize = this.getRootSize();
     const sizeChanged = rootSize.width !== this.lastRootWidth || rootSize.height !== this.lastRootHeight;
 
-    if (!sizeChanged) {
-      return;
+    if (sizeChanged) {
+      this.rebuildForCurrentSize(rootSize.width, rootSize.height);
     }
 
-    this.rebuildForCurrentSize(rootSize.width, rootSize.height);
+    if (this.activeScreen === 'game') {
+      this.boardView?.tick(this.getSafeDeltaTime(deltaTime));
+    }
   }
 
   protected onDestroy(): void {
@@ -38,6 +42,7 @@ export class GameBootstrap extends Component {
     this.gameContainer = null;
     this.menuController = null;
     this.boardView = null;
+    this.gameSession = null;
   }
 
   private buildRootUi(): void {
@@ -59,6 +64,8 @@ export class GameBootstrap extends Component {
     }
 
     this.activeScreen = 'menu';
+    this.boardView?.stopGame();
+    this.gameSession = null;
     this.menuContainer.active = true;
     this.gameContainer.active = false;
     this.menuController.setup(DIFFICULTIES, () => this.startNormalMode());
@@ -72,7 +79,8 @@ export class GameBootstrap extends Component {
     this.activeScreen = 'game';
     this.menuContainer.active = false;
     this.gameContainer.active = true;
-    this.boardView.setup(NORMAL_DIFFICULTY, () => this.showMainMenu());
+    this.gameSession = new GameSession(NORMAL_DIFFICULTY);
+    this.boardView.setup(this.gameSession, () => this.showMainMenu(), () => this.restartNormalMode());
   }
 
   private rebuildForCurrentSize(width: number, height: number): void {
@@ -81,8 +89,17 @@ export class GameBootstrap extends Component {
     this.updateRootSizes(width, height);
 
     if (this.activeScreen === 'game') {
-      this.boardView?.setup(NORMAL_DIFFICULTY, () => this.showMainMenu());
+      this.boardView?.refreshLayout();
     }
+  }
+
+  private restartNormalMode(): void {
+    if (!this.boardView) {
+      return;
+    }
+
+    this.gameSession = new GameSession(NORMAL_DIFFICULTY);
+    this.boardView.setup(this.gameSession, () => this.showMainMenu(), () => this.restartNormalMode());
   }
 
   private createGameRoot(): Node {
@@ -186,6 +203,10 @@ export class GameBootstrap extends Component {
     }
 
     return this.node;
+  }
+
+  private getSafeDeltaTime(deltaTime: number): number {
+    return Math.min(0.25, Math.max(0, deltaTime));
   }
 
   private destroyExistingRoot(): void {

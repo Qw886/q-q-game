@@ -23,6 +23,7 @@ export class MainMenuController extends Component {
     const rootSize = this.getRootSize();
     this.createTitle(rootSize.height);
     this.createModeButtons(difficulties);
+    this.createScoreHint(rootSize.height);
     this.createMessage(rootSize.height);
     this.initialized = true;
   }
@@ -81,6 +82,23 @@ export class MainMenuController extends Component {
     this.messageLabel.verticalAlign = Label.VerticalAlign.CENTER;
 
     this.node.addChild(this.messageNode);
+  }
+
+  private createScoreHint(height: number): void {
+    const hintNode = new Node('ScoreHint');
+    const transform = hintNode.addComponent(UITransform);
+    const label = hintNode.addComponent(Label);
+
+    transform.setContentSize(560, 52);
+    hintNode.setPosition(0, -height / 2 + 230, 0);
+    label.string = '计分：每对基础100分，剩余每秒奖励10分';
+    label.fontSize = 20;
+    label.lineHeight = 26;
+    label.color = new Color(230, 245, 210, 255);
+    label.horizontalAlign = Label.HorizontalAlign.CENTER;
+    label.verticalAlign = Label.VerticalAlign.CENTER;
+
+    this.node.addChild(hintNode);
   }
 
   private handleModeSelected(id: DifficultyId): void {
