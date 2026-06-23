@@ -1,4 +1,4 @@
-import { _decorator, Color, Component, Graphics, Label, Node, UITransform } from 'cc';
+import { _decorator, Color, Component, Graphics, Label, Node, tween, Tween, UITransform, Vec3 } from 'cc';
 import type { GameSnapshot } from '../core/GameTypes';
 
 const { ccclass } = _decorator;
@@ -9,6 +9,11 @@ export class HudController extends Component {
   private remainingValueLabel: Label | null = null;
   private scoreValueLabel: Label | null = null;
   private timeValueLabel: Label | null = null;
+  private timeBlockNode: Node | null = null;
+  private timeBlockGraphics: Graphics | null = null;
+  private timeBlockWidth = 0;
+  private timeBlockHeight = 0;
+  private lowTimeActive = false;
 
   public setup(width: number, height: number): void {
     this.destroyChildNodes();
@@ -28,6 +33,7 @@ export class HudController extends Component {
   }
 
   protected onDestroy(): void {
+    this.stopTimePulse();
     this.clearLabelReferences();
   }
 
@@ -45,10 +51,14 @@ export class HudController extends Component {
     }
 
     if (this.timeValueLabel) {
+      const lowTimeThreshold = Math.min(5, Math.ceil(snapshot.initialSeconds * 0.35));
+      const isLowTime = snapshot.status === 'running' && snapshot.remainingSeconds <= lowTimeThreshold;
+
       this.timeValueLabel.string = `${snapshot.remainingSeconds}`;
-      this.timeValueLabel.color = snapshot.remainingSeconds <= 5
+      this.timeValueLabel.color = isLowTime
         ? new Color(255, 96, 78, 255)
         : new Color(255, 255, 255, 255);
+      this.updateTimeBlockState(isLowTime);
     }
   }
 
@@ -65,16 +75,7 @@ export class HudController extends Component {
 
     blockTransform.setContentSize(width, height);
     blockNode.setPosition(x, 0, 0);
-    graphics.fillColor = highlighted
-      ? new Color(82, 56, 42, 222)
-      : new Color(12, 30, 25, 210);
-    graphics.strokeColor = highlighted
-      ? new Color(216, 180, 88, 230)
-      : new Color(142, 190, 137, 206);
-    graphics.lineWidth = highlighted ? 3 : 2;
-    graphics.roundRect(-width / 2, -height / 2, width, height, 8);
-    graphics.fill();
-    graphics.stroke();
+    this.drawInfoBlock(graphics, width, height, highlighted, false);
 
     titleTransform.setContentSize(width, height * 0.36);
     titleNode.setPosition(0, height * 0.19, 0);
@@ -98,10 +99,82 @@ export class HudController extends Component {
     blockNode.addChild(valueNode);
     this.node.addChild(blockNode);
 
+    if (highlighted) {
+      this.timeBlockNode = blockNode;
+      this.timeBlockGraphics = graphics;
+      this.timeBlockWidth = width;
+      this.timeBlockHeight = height;
+    }
+
     return valueLabel;
   }
 
+  private updateTimeBlockState(isLowTime: boolean): void {
+    if (this.lowTimeActive === isLowTime) {
+      return;
+    }
+
+    this.lowTimeActive = isLowTime;
+    this.drawTimeBlock(isLowTime);
+
+    if (isLowTime) {
+      this.playTimePulse();
+      return;
+    }
+
+    this.stopTimePulse();
+  }
+
+  private drawTimeBlock(isLowTime: boolean): void {
+    if (!this.timeBlockGraphics) {
+      return;
+    }
+
+    this.drawInfoBlock(this.timeBlockGraphics, this.timeBlockWidth, this.timeBlockHeight, true, isLowTime);
+  }
+
+  private drawInfoBlock(graphics: Graphics, width: number, height: number, highlighted: boolean, lowTime: boolean): void {
+    graphics.clear();
+    graphics.fillColor = lowTime
+      ? new Color(112, 43, 34, 236)
+      : highlighted
+        ? new Color(82, 56, 42, 222)
+        : new Color(12, 30, 25, 210);
+    graphics.strokeColor = lowTime
+      ? new Color(255, 122, 86, 255)
+      : highlighted
+        ? new Color(216, 180, 88, 230)
+        : new Color(142, 190, 137, 206);
+    graphics.lineWidth = lowTime ? 4 : highlighted ? 3 : 2;
+    graphics.roundRect(-width / 2, -height / 2, width, height, 8);
+    graphics.fill();
+    graphics.stroke();
+  }
+
+  private playTimePulse(): void {
+    if (!this.timeBlockNode?.isValid) {
+      return;
+    }
+
+    Tween.stopAllByTarget(this.timeBlockNode);
+    this.timeBlockNode.setScale(Vec3.ONE);
+    tween(this.timeBlockNode)
+      .to(0.08, { scale: new Vec3(1.08, 1.08, 1) })
+      .to(0.1, { scale: Vec3.ONE })
+      .start();
+  }
+
+  private stopTimePulse(): void {
+    if (!this.timeBlockNode?.isValid) {
+      return;
+    }
+
+    Tween.stopAllByTarget(this.timeBlockNode);
+    this.timeBlockNode.setScale(Vec3.ONE);
+  }
+
   private destroyChildNodes(): void {
+    this.stopTimePulse();
     const children = [...this.node.children];
 
     for (const child of children) {
@@ -121,6 +194,11 @@ export class HudController extends Component {
     this.remainingValueLabel = null;
     this.scoreValueLabel = null;
     this.timeValueLabel = null;
+    this.timeBlockNode = null;
+    this.timeBlockGraphics = null;
+    this.timeBlockWidth = 0;
+    this.timeBlockHeight = 0;
+    this.lowTimeActive = false;
   }
 
   private clamp(value: number, min: number, max: number): number {

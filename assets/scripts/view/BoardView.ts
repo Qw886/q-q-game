@@ -274,6 +274,8 @@ export class BoardView extends Component {
 
     this.clearAllTileFeedback();
     this.linkLineView.drawPath(result.path.points, this.metrics);
+    this.getTileView(result.first)?.playRemoveAnimation();
+    this.getTileView(result.second)?.playRemoveAnimation();
     this.lineClearScheduled = true;
     this.finishRemovalScheduled = true;
 
@@ -380,6 +382,7 @@ export class BoardView extends Component {
     this.finishRemovalScheduled = false;
     this.scorePopupScheduled = false;
     this.session?.cancelPendingAction();
+    this.stopTileAnimations();
     this.clearTileEvents();
     this.clearBackButtonEvent();
     this.linkLineView?.clear();
@@ -409,6 +412,14 @@ export class BoardView extends Component {
     }
 
     this.tileBindings.length = 0;
+  }
+
+  private stopTileAnimations(): void {
+    for (const binding of this.tileBindings) {
+      if (binding.node.isValid) {
+        binding.view.stopAnimationsForCleanup();
+      }
+    }
   }
 
   private clearBackButtonEvent(): void {

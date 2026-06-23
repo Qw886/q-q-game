@@ -1,4 +1,4 @@
-import { _decorator, Color, Component, Graphics, Label, Node, Sprite, SpriteFrame, UITransform, Vec3 } from 'cc';
+import { _decorator, Color, Component, Graphics, Label, Node, Sprite, SpriteFrame, tween, Tween, UIOpacity, UITransform, Vec3 } from 'cc';
 import { getTileDisplayInfo, TILE_BACKGROUND_PATH, validateTileDisplayMappings } from '../config/TileDisplayConfig';
 import type { TileData } from '../core/GameTypes';
 import { TileSpriteFrameCache } from './TileSpriteFrameCache';
@@ -15,6 +15,7 @@ export class TileView extends Component {
   private tileHeight = 0;
   private tileType = '';
   private removed = false;
+  private readonly basePosition = new Vec3();
   private backgroundFallbackNode: Node | null = null;
   private backgroundNode: Node | null = null;
   private backgroundSprite: Sprite | null = null;
@@ -28,14 +29,18 @@ export class TileView extends Component {
   private feedbackGraphics: Graphics | null = null;
 
   public setup(tile: TileData, width: number, height: number): void {
+    this.stopTweens();
     validateTileDisplayMappings();
     this.destroyChildNodes();
     this.tileWidth = width;
     this.tileHeight = height;
     this.tileType = tile.type;
     this.removed = false;
+    this.basePosition.set(this.node.position.x, this.node.position.y, this.node.position.z);
     this.node.active = true;
     this.node.setScale(Vec3.ONE);
+    this.node.setPosition(this.basePosition);
+    this.ensureComponent(this.node, UIOpacity).opacity = 255;
 
     const transform = this.ensureComponent(this.node, UITransform);
     transform.setContentSize(width, height);
@@ -50,10 +55,12 @@ export class TileView extends Component {
       return;
     }
 
-    this.node.setScale(selected ? new Vec3(1.08, 1.08, 1) : Vec3.ONE);
+    this.stopTweens();
+    this.node.setPosition(this.basePosition);
     this.drawHighlight(selected ? this.selectedBorderColor : this.borderColor, selected ? 4 : 2);
     this.setNodeActive(this.highlightNode, true);
     this.setNodeActive(this.feedbackNode, false);
+    this.animateScale(selected ? 1.07 : 1, 0.1);
   }
 
   public showFailure(): void {
@@ -61,11 +68,17 @@ export class TileView extends Component {
       return;
     }
 
-    this.node.setScale(new Vec3(1.04, 1.04, 1));
+    this.stopTweens();
+    this.node.setPosition(this.basePosition);
     this.drawHighlight(this.failureBorderColor, 4);
     this.drawFeedbackOverlay();
     this.setNodeActive(this.highlightNode, true);
     this.setNodeActive(this.feedbackNode, true);
+    tween(this.node)
+      .to(0.05, { position: new Vec3(this.basePosition.x - 4, this.basePosition.y, this.basePosition.z), scale: new Vec3(1.04, 1.04, 1) })
+      .to(0.05, { position: new Vec3(this.basePosition.x + 4, this.basePosition.y, this.basePosition.z), scale: new Vec3(1.02, 1.02, 1) })
+      .to(0.08, { position: this.basePosition.clone(), scale: Vec3.ONE })
+      .start();
   }
 
   public clearFeedback(): void {
@@ -73,18 +86,52 @@ export class TileView extends Component {
       return;
     }
 
-    this.node.setScale(Vec3.ONE);
+    this.stopTweens();
+    this.node.setPosition(this.basePosition);
     this.drawHighlight(this.borderColor, 2);
     this.setNodeActive(this.feedbackNode, false);
+    this.animateScale(1, 0.1);
+  }
+
+  public playRemoveAnimation(): void {
+    if (this.removed) {
+      return;
+    }
+
+    this.stopTweens();
+    this.node.setPosition(this.basePosition);
+    const opacity = this.ensureComponent(this.node, UIOpacity);
+    opacity.opacity = 255;
+
+    tween(this.node)
+      .to(0.2, { scale: new Vec3(0.88, 0.88, 1) })
+      .start();
+    tween(opacity)
+      .to(0.2, { opacity: 0 })
+      .start();
+  }
+
+  public stopAnimationsForCleanup(): void {
+    this.stopTweens();
+    this.node.setPosition(this.basePosition);
+
+    if (!this.removed) {
+      this.node.setScale(Vec3.ONE);
+      this.ensureComponent(this.node, UIOpacity).opacity = 255;
+    }
   }
 
   public markRemoved(): void {
+    this.stopTweens();
     this.removed = true;
-    this.node.setScale(new Vec3(0.82, 0.82, 1));
+    this.node.setPosition(this.basePosition);
+    this.node.setScale(new Vec3(0.88, 0.88, 1));
+    this.ensureComponent(this.node, UIOpacity).opacity = 0;
     this.node.active = false;
   }
 
   protected onDestroy(): void {
+    this.stopTweens();
     this.clearNodeReferences();
   }
 
@@ -297,6 +344,7 @@ export class TileView extends Component {
   }
 
   private destroyChildNodes(): void {
+    this.stopTweens();
     const children = [...this.node.children];
 
     for (const child of children) {
@@ -323,5 +371,20 @@ export class TileView extends Component {
     this.highlightGraphics = null;
     this.feedbackNode = null;
     this.feedbackGraphics = null;
+  }
+
+  private animateScale(scale: number, duration: number): void {
+    tween(this.node)
+      .to(duration, { scale: new Vec3(scale, scale, 1) })
+      .start();
+  }
+
+  private stopTweens(): void {
+    Tween.stopAllByTarget(this.node);
+    const opacity = this.node.getComponent(UIOpacity);
+
+    if (opacity) {
+      Tween.stopAllByTarget(opacity);
+    }
   }
 }

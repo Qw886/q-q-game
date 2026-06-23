@@ -57,6 +57,7 @@ export class GameSession {
   public getSnapshot(): GameSnapshot {
     return {
       modeName: this.config.name,
+      initialSeconds: this.config.roundTime,
       remainingTiles: this.remainingTileCount,
       score: this.currentScore,
       remainingSeconds: this.getDisplayedRemainingSeconds(),

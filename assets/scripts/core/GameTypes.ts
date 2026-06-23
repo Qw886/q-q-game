@@ -42,6 +42,7 @@ export type GameEndReason = 'win' | 'timeout' | 'deadlock';
 
 export interface GameSnapshot {
   readonly modeName: string;
+  readonly initialSeconds: number;
   readonly remainingTiles: number;
   readonly score: number;
   readonly remainingSeconds: number;
