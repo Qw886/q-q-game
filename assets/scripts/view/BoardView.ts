@@ -463,10 +463,13 @@ export class BoardView extends Component {
     const label = labelNode.addComponent(Label);
 
     transform.setContentSize(width, height);
-    graphics.fillColor = new Color(81, 126, 94, 255);
-    graphics.strokeColor = new Color(42, 72, 50, 255);
-    graphics.lineWidth = 2;
-    graphics.roundRect(-width / 2, -height / 2, width, height, 8);
+    graphics.fillColor = new Color(0, 0, 0, 50);
+    graphics.roundRect(-width / 2 + 4, -height / 2 - 4, width, height, 9);
+    graphics.fill();
+    graphics.fillColor = new Color(232, 219, 181, 255);
+    graphics.strokeColor = new Color(55, 125, 82, 255);
+    graphics.lineWidth = 3;
+    graphics.roundRect(-width / 2, -height / 2, width, height, 9);
     graphics.fill();
     graphics.stroke();
 
@@ -474,7 +477,7 @@ export class BoardView extends Component {
     label.string = text;
     label.fontSize = Math.max(20, Math.floor(height * 0.42));
     label.lineHeight = label.fontSize + 4;
-    label.color = new Color(255, 255, 255, 255);
+    label.color = new Color(45, 70, 48, 255);
     label.horizontalAlign = Label.HorizontalAlign.CENTER;
     label.verticalAlign = Label.VerticalAlign.CENTER;
     buttonNode.addChild(labelNode);
