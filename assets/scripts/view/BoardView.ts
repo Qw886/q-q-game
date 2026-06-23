@@ -22,7 +22,6 @@ export interface BoardViewDiagnostics {
   readonly failureFeedbackScheduled: boolean;
   readonly lineClearScheduled: boolean;
   readonly finishRemovalScheduled: boolean;
-  readonly scorePopupScheduled: boolean;
 }
 
 @ccclass('BoardView')
@@ -34,8 +33,6 @@ export class BoardView extends Component {
   private boardNode: Node | null = null;
   private linkLineNode: Node | null = null;
   private linkLineView: LinkLineView | null = null;
-  private scorePopupNode: Node | null = null;
-  private scorePopupLabel: Label | null = null;
   private hudController: HudController | null = null;
   private resultDialog: ResultDialogController | null = null;
   private backButtonNode: Node | null = null;
@@ -47,7 +44,7 @@ export class BoardView extends Component {
   private failureFeedbackScheduled = false;
   private lineClearScheduled = false;
   private finishRemovalScheduled = false;
-  private scorePopupScheduled = false;
+  private connectionAnimationId = 0;
 
   public setup(session: GameSession, onBack: () => void, onRestart: () => void): void {
     this.stopGame();
@@ -91,7 +88,7 @@ export class BoardView extends Component {
     this.failureFeedbackScheduled = false;
     this.lineClearScheduled = false;
     this.finishRemovalScheduled = false;
-    this.scorePopupScheduled = false;
+    this.connectionAnimationId += 1;
     this.session?.cancelPendingAction();
     this.clearTileEvents();
     this.clearBackButtonEvent();
@@ -155,27 +152,9 @@ export class BoardView extends Component {
     this.linkLineView = this.linkLineNode.addComponent(LinkLineView);
     this.linkLineView.setup(layout.boardWidth, layout.boardHeight);
     this.boardNode.addChild(this.linkLineNode);
-    this.createScorePopup(layout);
 
     this.boardContainer.addChild(this.boardNode);
     this.node.addChild(this.boardContainer);
-  }
-
-  private createScorePopup(layout: GameLayout): void {
-    this.scorePopupNode = new Node('ScorePopup');
-    const transform = this.scorePopupNode.addComponent(UITransform);
-    this.scorePopupLabel = this.scorePopupNode.addComponent(Label);
-
-    transform.setContentSize(220, 48);
-    this.scorePopupNode.setPosition(0, layout.boardHeight / 2 + 28, 0);
-    this.scorePopupNode.active = false;
-    this.scorePopupLabel.string = '';
-    this.scorePopupLabel.fontSize = 28;
-    this.scorePopupLabel.lineHeight = 34;
-    this.scorePopupLabel.color = new Color(255, 230, 92, 255);
-    this.scorePopupLabel.horizontalAlign = Label.HorizontalAlign.CENTER;
-    this.scorePopupLabel.verticalAlign = Label.VerticalAlign.CENTER;
-    this.boardNode?.addChild(this.scorePopupNode);
   }
 
   private createTile(tile: TileData, layout: GameLayout): void {
@@ -273,21 +252,28 @@ export class BoardView extends Component {
     }
 
     this.clearAllTileFeedback();
-    this.linkLineView.drawPath(result.path.points, this.metrics);
-    this.getTileView(result.first)?.playRemoveAnimation();
-    this.getTileView(result.second)?.playRemoveAnimation();
+    const animationId = this.connectionAnimationId + 1;
+    this.connectionAnimationId = animationId;
     this.lineClearScheduled = true;
     this.finishRemovalScheduled = true;
 
-    this.scheduleOnce(() => {
-      this.lineClearScheduled = false;
-      this.linkLineView?.clear();
-    }, 0.28);
+    this.linkLineView.drawPathAnimated(result.path.points, this.metrics, () => {
+      if (animationId !== this.connectionAnimationId || !this.session) {
+        return;
+      }
 
-    this.scheduleOnce(() => {
-      this.finishRemovalScheduled = false;
-      this.finishPairRemoval(result.first, result.second);
-    }, 0.3);
+      this.lineClearScheduled = false;
+      this.getTileView(result.first)?.playRemoveAnimation();
+      this.getTileView(result.second)?.playRemoveAnimation();
+      this.scheduleOnce(() => {
+        if (animationId !== this.connectionAnimationId) {
+          return;
+        }
+
+        this.finishRemovalScheduled = false;
+        this.finishPairRemoval(result.first, result.second);
+      }, 0.22);
+    });
   }
 
   private finishPairRemoval(first: GridPoint, second: GridPoint): void {
@@ -297,8 +283,7 @@ export class BoardView extends Component {
 
     this.getTileView(first)?.markRemoved();
     this.getTileView(second)?.markRemoved();
-    const gainedScore = this.session.completePairRemoval(first, second);
-    this.showScorePopup(gainedScore);
+    this.session.completePairRemoval(first, second);
     this.updateHud();
 
     if (this.session.endReason) {
@@ -345,22 +330,6 @@ export class BoardView extends Component {
     }
   }
 
-  private showScorePopup(score: number): void {
-    if (score <= 0 || !this.scorePopupNode || !this.scorePopupLabel) {
-      return;
-    }
-
-    this.scorePopupLabel.string = `+${score}`;
-    this.scorePopupNode.active = true;
-    this.scorePopupScheduled = true;
-    this.scheduleOnce(() => {
-      this.scorePopupScheduled = false;
-      if (this.scorePopupNode?.isValid) {
-        this.scorePopupNode.active = false;
-      }
-    }, 0.8);
-  }
-
   private getTileView(point: GridPoint): TileView | null {
     const binding = this.tileBindings.find((item) => this.isSamePoint(item.point, point));
 
@@ -380,15 +349,12 @@ export class BoardView extends Component {
     this.failureFeedbackScheduled = false;
     this.lineClearScheduled = false;
     this.finishRemovalScheduled = false;
-    this.scorePopupScheduled = false;
+    this.connectionAnimationId += 1;
     this.session?.cancelPendingAction();
     this.stopTileAnimations();
     this.clearTileEvents();
     this.clearBackButtonEvent();
     this.linkLineView?.clear();
-    if (this.scorePopupNode?.isValid) {
-      this.scorePopupNode.active = false;
-    }
     this.resultDialog?.hide();
   }
 
@@ -400,7 +366,6 @@ export class BoardView extends Component {
       failureFeedbackScheduled: this.failureFeedbackScheduled,
       lineClearScheduled: this.lineClearScheduled,
       finishRemovalScheduled: this.finishRemovalScheduled,
-      scorePopupScheduled: this.scorePopupScheduled,
     };
   }
 
@@ -446,7 +411,7 @@ export class BoardView extends Component {
     this.failureFeedbackScheduled = false;
     this.lineClearScheduled = false;
     this.finishRemovalScheduled = false;
-    this.scorePopupScheduled = false;
+    this.connectionAnimationId += 1;
     this.hudContainer = null;
     this.boardContainer = null;
     this.bottomContainer = null;
@@ -454,8 +419,6 @@ export class BoardView extends Component {
     this.boardNode = null;
     this.linkLineNode = null;
     this.linkLineView = null;
-    this.scorePopupNode = null;
-    this.scorePopupLabel = null;
     this.hudController = null;
     this.resultDialog = null;
     this.backButtonNode = null;

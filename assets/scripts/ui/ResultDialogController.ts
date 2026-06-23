@@ -183,9 +183,9 @@ export class ResultDialogController extends Component {
     const prefix = `${snapshot.modeName}\u6a21\u5f0f`;
 
     if (reason === 'deadlock') {
-      return `${prefix}\n\u672c\u5c40\u5931\u8d25\n\u6700\u7ec8\u5206\u6570\uff1a${snapshot.score}\n\u5269\u4f59\u9ebb\u5c06\uff1a${snapshot.remainingTiles}`;
+      return `${prefix}\n\u672c\u5c40\u5931\u8d25\n\u5269\u4f59\u9ebb\u5c06\uff1a${snapshot.remainingTiles}`;
     }
 
-    return `${prefix}\n\u6700\u7ec8\u5206\u6570\uff1a${snapshot.score}\n\u5269\u4f59\u9ebb\u5c06\uff1a${snapshot.remainingTiles}`;
+    return `${prefix}\n\u5269\u4f59\u9ebb\u5c06\uff1a${snapshot.remainingTiles}`;
   }
 }

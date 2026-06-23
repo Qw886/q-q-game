@@ -10,7 +10,6 @@ export interface DifficultyConfig {
   readonly columns: number;
   readonly tileCount: number;
   readonly roundTime: number;
-  readonly scoreMultiplier: number;
 }
 
 export interface TileData {
@@ -44,7 +43,6 @@ export interface GameSnapshot {
   readonly modeName: string;
   readonly initialSeconds: number;
   readonly remainingTiles: number;
-  readonly score: number;
   readonly remainingSeconds: number;
   readonly status: GameStatus;
 }

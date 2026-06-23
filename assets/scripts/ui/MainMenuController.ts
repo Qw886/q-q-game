@@ -19,7 +19,7 @@ export class MainMenuController extends Component {
     const rootSize = this.getRootSize();
     this.createTitle(rootSize.height);
     this.createModeButtons(difficulties);
-    this.createScoreHint(rootSize.height);
+    this.createRuleHint(rootSize.height);
     this.initialized = true;
   }
 
@@ -88,14 +88,14 @@ export class MainMenuController extends Component {
     });
   }
 
-  private createScoreHint(height: number): void {
-    const hintNode = new Node('ScoreHint');
+  private createRuleHint(height: number): void {
+    const hintNode = new Node('RuleHint');
     const transform = hintNode.addComponent(UITransform);
     const label = hintNode.addComponent(Label);
 
     transform.setContentSize(620, 72);
     hintNode.setPosition(0, Math.max(-height / 2 + 138, -288), 0);
-    label.string = '\u8ba1\u5206\u89c4\u5219\n\u6bcf\u5bf9\u57fa\u7840100\u5206\uff0c\u5269\u4f59\u6bcf\u79d2\u5956\u52b110\u5206\uff0c\u518d\u6309\u6a21\u5f0f\u500d\u7387\u8ba1\u7b97';
+    label.string = '\u9009\u62e9\u4e24\u5f20\u76f8\u540c\u96c0\u724c\n\u8fde\u7ebf\u8def\u5f84\u6700\u591a\u8f6c\u5f2f\u4e24\u6b21';
     label.fontSize = 18;
     label.lineHeight = 26;
     label.color = new Color(230, 245, 210, 255);
@@ -126,7 +126,7 @@ export class MainMenuController extends Component {
     this.addButtonText(
       buttonNode,
       `${config.name}\u6a21\u5f0f`,
-      `\u68cb\u76d8\uff1a${config.tileCount}\u5f20   \u65f6\u95f4\uff1a${config.roundTime}\u79d2   \u500d\u7387\uff1a${config.scoreMultiplier.toFixed(1)}x`,
+      `\u68cb\u76d8\uff1a${config.tileCount}\u5f20   \u65f6\u95f4\uff1a${config.roundTime}\u79d2`,
       width,
       height,
       this.getModeAccentColor(config.id),

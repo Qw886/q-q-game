@@ -8,7 +8,6 @@ export const DIFFICULTIES: readonly DifficultyConfig[] = [
     columns: 8,
     tileCount: 80,
     roundTime: 20,
-    scoreMultiplier: 1,
   },
   {
     id: 'medium',
@@ -17,7 +16,6 @@ export const DIFFICULTIES: readonly DifficultyConfig[] = [
     columns: 10,
     tileCount: 120,
     roundTime: 14,
-    scoreMultiplier: 1.5,
   },
   {
     id: 'hard',
@@ -26,7 +24,6 @@ export const DIFFICULTIES: readonly DifficultyConfig[] = [
     columns: 12,
     tileCount: 192,
     roundTime: 9,
-    scoreMultiplier: 2,
   },
 ];
 

@@ -1,4 +1,3 @@
-import { calculatePairScore } from '../config/ScoreConfig';
 import { BoardGenerator } from './BoardGenerator';
 import { BoardState } from './BoardState';
 import { DeadlockDetector } from './DeadlockDetector';
@@ -28,7 +27,6 @@ export class GameSession {
   private readonly tiles: readonly TileData[];
   private selectedPoint: GridPoint | null = null;
   private remainingTileCount: number;
-  private currentScore = 0;
   private currentRemainingTime: number;
   private currentStatus: GameStatus = 'running';
   private currentEndReason: GameEndReason | null = null;
@@ -59,7 +57,6 @@ export class GameSession {
       modeName: this.config.name,
       initialSeconds: this.config.roundTime,
       remainingTiles: this.remainingTileCount,
-      score: this.currentScore,
       remainingSeconds: this.getDisplayedRemainingSeconds(),
       status: this.currentStatus,
     };
@@ -71,10 +68,6 @@ export class GameSession {
 
   public get endReason(): GameEndReason | null {
     return this.currentEndReason;
-  }
-
-  public get score(): number {
-    return this.currentScore;
   }
 
   public get remainingTiles(): number {
@@ -157,28 +150,20 @@ export class GameSession {
     };
   }
 
-  public completePairRemoval(first: GridPoint, second: GridPoint): number {
+  public completePairRemoval(first: GridPoint, second: GridPoint): void {
     if (this.currentStatus !== 'running') {
-      return 0;
+      return;
     }
 
-    let gainedScore = 0;
-
     if (this.board.hasTile(first) && this.board.hasTile(second)) {
-      const remainingSeconds = this.getDisplayedRemainingSeconds();
-      gainedScore = calculatePairScore(remainingSeconds, this.config.scoreMultiplier);
-
       this.board.removeTiles(first, second);
       this.remainingTileCount = this.board.getRemainingCount();
-      this.currentScore += gainedScore;
       this.currentRemainingTime = this.config.roundTime;
     }
 
     this.selectedPoint = null;
     this.inputLocked = false;
     this.updateEndStateAfterRemoval();
-
-    return gainedScore;
   }
 
   public update(deltaSeconds: number): GameEndReason | null {
