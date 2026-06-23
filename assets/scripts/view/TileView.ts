@@ -121,6 +121,7 @@ export class TileView extends Component {
     const transform = this.backgroundNode.addComponent(UITransform);
     this.backgroundSprite = this.backgroundNode.addComponent(Sprite);
 
+    this.backgroundSprite.sizeMode = Sprite.SizeMode.CUSTOM;
     transform.setContentSize(this.tileWidth, this.tileHeight);
     this.node.addChild(this.backgroundNode);
   }
@@ -131,6 +132,7 @@ export class TileView extends Component {
     this.faceSprite = this.faceNode.addComponent(Sprite);
     const faceSize = this.getFaceSize();
 
+    this.faceSprite.sizeMode = Sprite.SizeMode.CUSTOM;
     transform.setContentSize(faceSize.width, faceSize.height);
     this.faceNode.active = false;
     this.node.addChild(this.faceNode);
@@ -205,9 +207,12 @@ export class TileView extends Component {
   private applySpriteFrame(sprite: Sprite, spriteFrame: SpriteFrame, width: number, height: number): void {
     const transform = sprite.node.getComponent(UITransform) ?? sprite.node.addComponent(UITransform);
 
-    transform.setContentSize(width, height);
+    // Cocos 在赋值 SpriteFrame 时可能按图片原始尺寸重设 UITransform；
+    // 先进入 CUSTOM 模式，并在赋值后再次恢复目标尺寸。
+    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
     sprite.spriteFrame = spriteFrame;
     sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+    transform.setContentSize(width, height);
   }
 
   private drawGraphicsBackground(): void {

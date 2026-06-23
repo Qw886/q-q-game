@@ -12,31 +12,33 @@ export class TileSpriteFrameCache {
   private static missingResourceWarningLogged = false;
 
   public static load(path: string, callback: SpriteFrameCallback): void {
-    if (this.spriteFrames.has(path)) {
-      callback(this.spriteFrames.get(path) ?? null);
+    const spriteFramePath = this.toSpriteFramePath(path);
+
+    if (this.spriteFrames.has(spriteFramePath)) {
+      callback(this.spriteFrames.get(spriteFramePath) ?? null);
       return;
     }
 
-    const pendingLoad = this.pendingLoads.get(path);
+    const pendingLoad = this.pendingLoads.get(spriteFramePath);
 
     if (pendingLoad) {
       pendingLoad.callbacks.push(callback);
       return;
     }
 
-    this.pendingLoads.set(path, { callbacks: [callback] });
-    resources.load(path, SpriteFrame, (error, spriteFrame) => {
-      const callbacks = this.pendingLoads.get(path)?.callbacks ?? [];
-      this.pendingLoads.delete(path);
+    this.pendingLoads.set(spriteFramePath, { callbacks: [callback] });
+    resources.load(spriteFramePath, SpriteFrame, (error, spriteFrame) => {
+      const callbacks = this.pendingLoads.get(spriteFramePath)?.callbacks ?? [];
+      this.pendingLoads.delete(spriteFramePath);
 
       if (error || !spriteFrame) {
-        this.spriteFrames.set(path, null);
-        this.logMissingPath(path, error);
+        this.spriteFrames.set(spriteFramePath, null);
+        this.logMissingPath(spriteFramePath, error);
         callbacks.forEach((item) => item(null));
         return;
       }
 
-      this.spriteFrames.set(path, spriteFrame);
+      this.spriteFrames.set(spriteFramePath, spriteFrame);
       callbacks.forEach((item) => item(spriteFrame));
     });
   }
@@ -70,5 +72,9 @@ export class TileSpriteFrameCache {
       `[TileSpriteFrameCache] Some tile SpriteFrame resources are missing. Fallback text will be used. First missing path: resources/${path}.`,
       error ?? '',
     );
+  }
+
+  private static toSpriteFramePath(path: string): string {
+    return path.endsWith('/spriteFrame') ? path : `${path}/spriteFrame`;
   }
 }
