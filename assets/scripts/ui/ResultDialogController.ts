@@ -54,12 +54,16 @@ export class ResultDialogController extends Component {
   }
 
   protected onDestroy(): void {
-    this.clear();
+    this.clearButtonEvents();
+    this.onRestart = null;
+    this.onMenu = null;
   }
 
   private clear(): void {
     this.clearButtonEvents();
-    this.node.removeAllChildren();
+    this.onRestart = null;
+    this.onMenu = null;
+    this.destroyChildNodes();
     const graphics = this.node.getComponent(Graphics);
 
     if (graphics) {
@@ -78,6 +82,19 @@ export class ResultDialogController extends Component {
 
     this.restartButton = null;
     this.menuButton = null;
+  }
+
+  private destroyChildNodes(): void {
+    const children = [...this.node.children];
+
+    for (const child of children) {
+      if (!child.isValid) {
+        continue;
+      }
+
+      child.removeFromParent();
+      child.destroy();
+    }
   }
 
   private createPanel(width: number, height: number): Node {

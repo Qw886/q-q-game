@@ -15,6 +15,16 @@ interface BoardTileBinding {
   readonly onClick: () => void;
 }
 
+export interface BoardViewDiagnostics {
+  readonly hasSession: boolean;
+  readonly tileBindingCount: number;
+  readonly boardContainerChildCount: number;
+  readonly failureFeedbackScheduled: boolean;
+  readonly lineClearScheduled: boolean;
+  readonly finishRemovalScheduled: boolean;
+  readonly scorePopupScheduled: boolean;
+}
+
 @ccclass('BoardView')
 export class BoardView extends Component {
   private hudContainer: Node | null = null;
@@ -34,15 +44,16 @@ export class BoardView extends Component {
   private onRestart: (() => void) | null = null;
   private readonly tileBindings: BoardTileBinding[] = [];
   private metrics: BoardGridMetrics | null = null;
+  private failureFeedbackScheduled = false;
   private lineClearScheduled = false;
   private finishRemovalScheduled = false;
+  private scorePopupScheduled = false;
 
   public setup(session: GameSession, onBack: () => void, onRestart: () => void): void {
-    this.cleanupDynamicState();
+    this.stopGame();
     this.session = session;
     this.onBack = onBack;
     this.onRestart = onRestart;
-    this.node.removeAllChildren();
 
     this.createLayout();
     this.updateHud();
@@ -72,10 +83,22 @@ export class BoardView extends Component {
 
   public stopGame(): void {
     this.cleanupDynamicState();
+    this.destroyDynamicNodes();
   }
 
   protected onDestroy(): void {
-    this.cleanupDynamicState();
+    this.unscheduleAllCallbacks();
+    this.failureFeedbackScheduled = false;
+    this.lineClearScheduled = false;
+    this.finishRemovalScheduled = false;
+    this.scorePopupScheduled = false;
+    this.session?.cancelPendingAction();
+    this.clearTileEvents();
+    this.clearBackButtonEvent();
+    this.linkLineView?.clear();
+    this.session = null;
+    this.onBack = null;
+    this.onRestart = null;
   }
 
   private createLayout(): void {
@@ -236,7 +259,9 @@ export class BoardView extends Component {
   private showFailureFeedback(first: GridPoint, second: GridPoint): void {
     this.getTileView(first)?.showFailure();
     this.getTileView(second)?.showFailure();
+    this.failureFeedbackScheduled = true;
     this.scheduleOnce(() => {
+      this.failureFeedbackScheduled = false;
       this.getTileView(first)?.clearFeedback();
       this.getTileView(second)?.setSelected(true);
     }, 0.25);
@@ -304,9 +329,11 @@ export class BoardView extends Component {
   }
 
   private handleBackButton(): void {
-    this.cleanupDynamicState();
-    if (this.onBack) {
-      this.onBack();
+    const back = this.onBack;
+
+    this.stopGame();
+    if (back) {
+      back();
     }
   }
 
@@ -323,7 +350,9 @@ export class BoardView extends Component {
 
     this.scorePopupLabel.string = `+${score}`;
     this.scorePopupNode.active = true;
+    this.scorePopupScheduled = true;
     this.scheduleOnce(() => {
+      this.scorePopupScheduled = false;
       if (this.scorePopupNode?.isValid) {
         this.scorePopupNode.active = false;
       }
@@ -346,8 +375,11 @@ export class BoardView extends Component {
 
   private cleanupDynamicState(): void {
     this.unscheduleAllCallbacks();
+    this.failureFeedbackScheduled = false;
     this.lineClearScheduled = false;
     this.finishRemovalScheduled = false;
+    this.scorePopupScheduled = false;
+    this.session?.cancelPendingAction();
     this.clearTileEvents();
     this.clearBackButtonEvent();
     this.linkLineView?.clear();
@@ -355,6 +387,18 @@ export class BoardView extends Component {
       this.scorePopupNode.active = false;
     }
     this.resultDialog?.hide();
+  }
+
+  public getDiagnostics(): BoardViewDiagnostics {
+    return {
+      hasSession: this.session !== null,
+      tileBindingCount: this.tileBindings.length,
+      boardContainerChildCount: this.boardContainer?.isValid ? this.boardContainer.children.length : 0,
+      failureFeedbackScheduled: this.failureFeedbackScheduled,
+      lineClearScheduled: this.lineClearScheduled,
+      finishRemovalScheduled: this.finishRemovalScheduled,
+      scorePopupScheduled: this.scorePopupScheduled,
+    };
   }
 
   private clearTileEvents(): void {
@@ -373,6 +417,41 @@ export class BoardView extends Component {
     }
 
     this.backButtonNode = null;
+  }
+
+  private destroyDynamicNodes(): void {
+    const children = [...this.node.children];
+
+    for (const child of children) {
+      if (!child.isValid) {
+        continue;
+      }
+
+      child.removeFromParent();
+      child.destroy();
+    }
+
+    this.tileBindings.length = 0;
+    this.failureFeedbackScheduled = false;
+    this.lineClearScheduled = false;
+    this.finishRemovalScheduled = false;
+    this.scorePopupScheduled = false;
+    this.hudContainer = null;
+    this.boardContainer = null;
+    this.bottomContainer = null;
+    this.resultContainer = null;
+    this.boardNode = null;
+    this.linkLineNode = null;
+    this.linkLineView = null;
+    this.scorePopupNode = null;
+    this.scorePopupLabel = null;
+    this.hudController = null;
+    this.resultDialog = null;
+    this.backButtonNode = null;
+    this.session = null;
+    this.onBack = null;
+    this.onRestart = null;
+    this.metrics = null;
   }
 
   private createButton(text: string, width: number, height: number): Node {

@@ -1,6 +1,7 @@
 import type { BoardState } from './BoardState';
 
 export type DifficultyId = 'normal' | 'medium' | 'hard';
+export type TileType = string;
 
 export interface DifficultyConfig {
   readonly id: DifficultyId;
@@ -15,7 +16,7 @@ export interface DifficultyConfig {
 export interface TileData {
   readonly id: number;
   readonly label: string;
-  readonly type: string;
+  readonly type: TileType;
   readonly row: number;
   readonly column: number;
 }
@@ -27,7 +28,7 @@ export interface GridPoint {
 
 export interface BoardTile {
   readonly position: GridPoint;
-  readonly type: string;
+  readonly type: TileType;
 }
 
 export interface PathResult {
@@ -52,13 +53,13 @@ export type GameStatus = 'running' | 'won' | 'lost';
 export interface SolutionStep {
   readonly first: GridPoint;
   readonly second: GridPoint;
-  readonly tileType: string;
+  readonly tileType: TileType;
 }
 
 export interface LegalMove {
   readonly first: GridPoint;
   readonly second: GridPoint;
-  readonly tileType: string;
+  readonly tileType: TileType;
   readonly path: PathResult;
 }
 

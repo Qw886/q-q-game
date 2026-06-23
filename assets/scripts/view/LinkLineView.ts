@@ -51,6 +51,10 @@ export class LinkLineView extends Component {
     }
   }
 
+  protected onDestroy(): void {
+    this.clear();
+  }
+
   private toLocalPoint(point: GridPoint, metrics: BoardGridMetrics): { x: number; y: number } {
     const x = -metrics.boardWidth / 2 + metrics.tileWidth / 2 + point.column * (metrics.tileWidth + metrics.gap);
     const y = metrics.boardHeight / 2 - metrics.tileHeight / 2 - point.row * (metrics.tileHeight + metrics.gap);
@@ -58,4 +62,3 @@ export class LinkLineView extends Component {
     return { x, y };
   }
 }
-

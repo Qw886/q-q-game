@@ -39,6 +39,7 @@ export class GameBootstrap extends Component {
   }
 
   protected onDestroy(): void {
+    this.cleanupCurrentGame();
     this.gameRoot = null;
     this.menuContainer = null;
     this.gameContainer = null;
@@ -66,9 +67,8 @@ export class GameBootstrap extends Component {
       return;
     }
 
+    this.cleanupCurrentGame();
     this.activeScreen = 'menu';
-    this.boardView?.stopGame();
-    this.gameSession = null;
     this.menuContainer.active = true;
     this.gameContainer.active = false;
     this.menuController.setup(DIFFICULTIES, (difficulty) => this.startMode(difficulty));
@@ -78,6 +78,8 @@ export class GameBootstrap extends Component {
     if (!this.menuContainer || !this.gameContainer || !this.boardView) {
       return;
     }
+
+    this.cleanupCurrentGame();
 
     try {
       this.currentDifficulty = difficulty;
@@ -109,10 +111,13 @@ export class GameBootstrap extends Component {
       return;
     }
 
+    const difficulty = this.currentDifficulty;
+    this.cleanupCurrentGame();
+
     try {
-      this.gameSession = new GameSession(this.currentDifficulty);
+      this.gameSession = new GameSession(difficulty);
     } catch (error) {
-      console.error(`[Stage5] Failed to restart ${this.currentDifficulty.id} mode.`, error);
+      console.error(`[Stage5] Failed to restart ${difficulty.id} mode.`, error);
       this.showMainMenu();
       return;
     }
@@ -225,6 +230,11 @@ export class GameBootstrap extends Component {
 
   private getSafeDeltaTime(deltaTime: number): number {
     return Math.min(0.25, Math.max(0, deltaTime));
+  }
+
+  private cleanupCurrentGame(): void {
+    this.boardView?.stopGame();
+    this.gameSession = null;
   }
 
   private destroyExistingRoot(): void {

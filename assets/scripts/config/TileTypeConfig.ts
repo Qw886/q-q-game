@@ -1,6 +1,6 @@
 import type { DifficultyId } from '../core/GameTypes';
 
-export const NORMAL_TILE_TYPES: readonly string[] = [
+export const NORMAL_TILE_TYPES = [
   'WAN_1',
   'WAN_2',
   'WAN_3',
@@ -21,7 +21,9 @@ export const NORMAL_TILE_TYPES: readonly string[] = [
   'WEST',
   'NORTH',
   'RED',
-];
+] as const;
+
+export type ConfiguredTileType = typeof NORMAL_TILE_TYPES[number];
 
 export const TILE_TYPE_COUNTS_BY_DIFFICULTY: Readonly<Record<DifficultyId, Readonly<Record<string, number>>>> = {
   normal: createUniformTileCounts(4),

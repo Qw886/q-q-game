@@ -11,7 +11,7 @@ export class HudController extends Component {
   private timeLabel: Label | null = null;
 
   public setup(width: number, height: number): void {
-    this.node.removeAllChildren();
+    this.destroyChildNodes();
     const transform = this.node.getComponent(UITransform) ?? this.node.addComponent(UITransform);
     transform.setContentSize(width, height);
 
@@ -19,6 +19,10 @@ export class HudController extends Component {
     this.remainingLabel = this.createLabel('Remaining', -width * 0.12, height);
     this.scoreLabel = this.createLabel('Score', width * 0.12, height);
     this.timeLabel = this.createLabel('Time', width * 0.36, height);
+  }
+
+  protected onDestroy(): void {
+    this.clearLabelReferences();
   }
 
   public updateSnapshot(snapshot: GameSnapshot): void {
@@ -58,5 +62,27 @@ export class HudController extends Component {
     this.node.addChild(labelNode);
 
     return label;
+  }
+
+  private destroyChildNodes(): void {
+    const children = [...this.node.children];
+
+    for (const child of children) {
+      if (!child.isValid) {
+        continue;
+      }
+
+      child.removeFromParent();
+      child.destroy();
+    }
+
+    this.clearLabelReferences();
+  }
+
+  private clearLabelReferences(): void {
+    this.modeLabel = null;
+    this.remainingLabel = null;
+    this.scoreLabel = null;
+    this.timeLabel = null;
   }
 }
