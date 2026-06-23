@@ -21,21 +21,24 @@ export class BoardGenerator {
   public generate(config: DifficultyConfig, seed: number = Date.now()): GeneratedBoard {
     this.validateConfig(config);
     const startedAt = Date.now();
+    const normalizedSeed = seed >>> 0;
+    const skeletonRandom = new SeededRandom((normalizedSeed ^ 0x9e3779b9) >>> 0);
+    const random = new SeededRandom(normalizedSeed);
     const skeletonStartedAt = Date.now();
-    const skeleton = this.createFixedSkeleton(config);
+    const skeleton = this.createFixedSkeleton(config, skeletonRandom);
     const skeletonElapsedMilliseconds = Date.now() - skeletonStartedAt;
-    const random = new SeededRandom(seed >>> 0);
     const optimized = this.assignmentOptimizer.optimize(config, skeleton, random);
-    const validationPassed = this.validateSolution(optimized.board, optimized.solution);
+    const solution = this.moveSeededOpeningStepToFront(optimized.board, optimized.solution, skeletonRandom);
+    const validationPassed = this.validateSolution(optimized.board, solution);
 
     return {
       board: optimized.board,
-      seed: seed >>> 0,
+      seed: normalizedSeed,
       tiles: this.toTileData(config, optimized.board.getAllTiles()),
-      solution: optimized.solution,
+      solution,
       generationAttempts: 1,
       validationPassed,
-      generationStrategy: 'FIXED',
+      generationStrategy: 'SEEDED_FIXED',
       searchNodes: 0,
       backtrackCount: 0,
       restartCount: 0,
@@ -71,18 +74,75 @@ export class BoardGenerator {
     return clone.getRemainingCount() === 0;
   }
 
-  private createFixedSkeleton(config: DifficultyConfig): readonly SkeletonPair[] {
+  private createFixedSkeleton(config: DifficultyConfig, random: SeededRandom): readonly SkeletonPair[] {
     const rawSkeleton = FIXED_SKELETONS[config.id];
-    const pairs = rawSkeleton.map(([first, second]) => ({
-      first: { row: first[0], column: first[1] },
-      second: { row: second[0], column: second[1] },
-    }));
+    const transform = this.selectSeededSkeletonTransform(random);
+    const pairs = rawSkeleton.map(([first, second]) => this.transformSkeletonPair(first, second, config, transform));
 
     if (pairs.length !== config.tileCount / 2) {
       throw new Error(`Skeleton pair count ${pairs.length} does not match tile count ${config.tileCount}.`);
     }
 
     return pairs;
+  }
+
+  private selectSeededSkeletonTransform(random: SeededRandom): SkeletonTransform {
+    const transforms: readonly SkeletonTransform[] = [
+      { flipRows: false, flipColumns: false },
+      { flipRows: true, flipColumns: false },
+      { flipRows: false, flipColumns: true },
+      { flipRows: true, flipColumns: true },
+    ];
+
+    return transforms[random.nextInt(transforms.length)];
+  }
+
+  private transformSkeletonPair(
+    first: readonly [number, number],
+    second: readonly [number, number],
+    config: DifficultyConfig,
+    transform: SkeletonTransform,
+  ): SkeletonPair {
+    return {
+      first: this.transformPoint(first, config, transform),
+      second: this.transformPoint(second, config, transform),
+    };
+  }
+
+  private transformPoint(
+    point: readonly [number, number],
+    config: DifficultyConfig,
+    transform: SkeletonTransform,
+  ): { row: number; column: number } {
+    return {
+      row: transform.flipRows ? config.rows - 1 - point[0] : point[0],
+      column: transform.flipColumns ? config.columns - 1 - point[1] : point[1],
+    };
+  }
+
+  private moveSeededOpeningStepToFront(
+    board: BoardState,
+    solution: readonly SolutionStep[],
+    random: SeededRandom,
+  ): readonly SolutionStep[] {
+    const openingCandidateIndexes = random.shuffle(
+      solution
+        .map((step, index) => ({ step, index }))
+        .filter(({ step }) => this.pathFinder.findPath(board, step.first, step.second).connected)
+        .map(({ index }) => index),
+    );
+
+    if (openingCandidateIndexes.length === 0) {
+      return solution;
+    }
+
+    const selectedIndex = openingCandidateIndexes[0];
+
+    return [
+      solution[selectedIndex],
+      ...solution.slice(0, selectedIndex),
+      ...solution.slice(selectedIndex + 1),
+    ];
   }
 
   private toTileData(config: DifficultyConfig, tiles: readonly BoardTile[]): TileData[] {
@@ -121,4 +181,9 @@ export class BoardGenerator {
       throw new Error(`Tile type total ${totalCount} does not match tile count ${config.tileCount}.`);
     }
   }
+}
+
+interface SkeletonTransform {
+  readonly flipRows: boolean;
+  readonly flipColumns: boolean;
 }

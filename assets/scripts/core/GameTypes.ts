@@ -69,7 +69,7 @@ export interface GeneratedBoard {
   readonly solution: readonly SolutionStep[];
   readonly generationAttempts: number;
   readonly validationPassed: boolean;
-  readonly generationStrategy: 'BACKTRACKING' | 'FALLBACK' | 'FIXED' | 'LAYERED';
+  readonly generationStrategy: 'BACKTRACKING' | 'FALLBACK' | 'FIXED' | 'SEEDED_FIXED' | 'LAYERED';
   readonly searchNodes: number;
   readonly backtrackCount: number;
   readonly restartCount: number;
