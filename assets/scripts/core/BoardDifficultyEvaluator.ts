@@ -18,20 +18,12 @@ export class BoardDifficultyEvaluator {
     const edgeLegalMoves = legalMoves.filter((move) => this.isEdgeMove(config, move)).length;
     const openingRejectionReasons = this.getOpeningRejectionReasons(
       totalLegalMoves,
-      zeroTurnMoves,
-      oneTurnMoves,
-      twoTurnMoves,
       adjacentMatchingMoves,
+      config.tileCount,
       difficultyConfig,
     );
-    const firstTenStepsAverageMoves = openingRejectionReasons.length === 0
-      ? this.calculateFirstTenStepsAverageMoves(board, solution)
-      : 0;
+    const firstTenStepsAverageMoves = this.calculateFirstTenStepsAverageMoves(board, solution);
     const rejectionReasons = [...openingRejectionReasons];
-
-    if (firstTenStepsAverageMoves > difficultyConfig.maxFirstTenAverageMoves) {
-      rejectionReasons.push('first ten solution steps have too many choices');
-    }
 
     return {
       totalLegalMoves,
@@ -49,6 +41,7 @@ export class BoardDifficultyEvaluator {
         adjacentMatchingMoves,
         edgeLegalMoves,
         firstTenStepsAverageMoves,
+        config.tileCount,
         difficultyConfig,
       ),
       accepted: rejectionReasons.length === 0,
@@ -71,56 +64,27 @@ export class BoardDifficultyEvaluator {
 
   private getOpeningRejectionReasons(
     totalLegalMoves: number,
-    zeroTurnMoves: number,
-    oneTurnMoves: number,
-    twoTurnMoves: number,
     adjacentMatchingMoves: number,
+    tileCount: number,
     difficultyConfig: BoardDifficultyConfig,
   ): string[] {
     const reasons: string[] = [];
-    const singleTurnTypeRatio = this.getMaxTurnTypeRatio(totalLegalMoves, zeroTurnMoves, oneTurnMoves, twoTurnMoves);
+    const openingMoveDensity = this.getOpeningMoveDensity(totalLegalMoves, tileCount);
 
-    if (totalLegalMoves < difficultyConfig.minOpeningMoves) {
-      reasons.push('opening moves below normal range');
+    if (totalLegalMoves <= 0) {
+      reasons.push('opening board has no legal moves');
     }
 
-    if (totalLegalMoves > difficultyConfig.maxOpeningMoves) {
-      reasons.push('opening moves above normal range');
+    if (openingMoveDensity < difficultyConfig.minOpeningMoveDensity) {
+      reasons.push('opening move density below range');
+    }
+
+    if (openingMoveDensity > difficultyConfig.maxOpeningMoveDensity) {
+      reasons.push('opening move density above range');
     }
 
     if (adjacentMatchingMoves > difficultyConfig.maxAdjacentMatchingMoves) {
       reasons.push('too many adjacent matching moves');
-    }
-
-    if (zeroTurnMoves < difficultyConfig.minZeroTurnMoves) {
-      reasons.push('missing zero-turn opening move');
-    }
-
-    if (zeroTurnMoves > difficultyConfig.maxZeroTurnMoves) {
-      reasons.push('too many zero-turn opening moves');
-    }
-
-    if (
-      difficultyConfig.minOneTurnMoves > 0
-      && oneTurnMoves < difficultyConfig.minOneTurnMoves
-    ) {
-      reasons.push('missing one-turn opening moves');
-    }
-
-    if (oneTurnMoves > difficultyConfig.maxOneTurnMoves) {
-      reasons.push('too many one-turn opening moves');
-    }
-
-    if (twoTurnMoves < difficultyConfig.minTwoTurnMoves) {
-      reasons.push('missing two-turn opening move');
-    }
-
-    if (twoTurnMoves > difficultyConfig.maxTwoTurnMoves) {
-      reasons.push('too many two-turn opening moves');
-    }
-
-    if (singleTurnTypeRatio > difficultyConfig.maxSingleTurnTypeRatio) {
-      reasons.push('one turn type dominates opening moves');
     }
 
     return reasons;
@@ -134,10 +98,16 @@ export class BoardDifficultyEvaluator {
     adjacentMatchingMoves: number,
     edgeLegalMoves: number,
     firstTenStepsAverageMoves: number,
+    tileCount: number,
     difficultyConfig: BoardDifficultyConfig,
   ): number {
-    const openingDistance = Math.abs(totalLegalMoves - difficultyConfig.targetOpeningMoves);
-    const rangePenalty = this.getRangePenalty(totalLegalMoves, difficultyConfig);
+    const openingMoveDensity = this.getOpeningMoveDensity(totalLegalMoves, tileCount);
+    const densityTarget = (difficultyConfig.minOpeningMoveDensity + difficultyConfig.maxOpeningMoveDensity) / 2;
+    const densityPenalty = this.getRangePenaltyForValue(
+      openingMoveDensity,
+      difficultyConfig.minOpeningMoveDensity,
+      difficultyConfig.maxOpeningMoveDensity,
+    );
     const adjacentPenalty = Math.max(0, adjacentMatchingMoves - difficultyConfig.maxAdjacentMatchingMoves);
     const zeroTurnPenalty = this.getRangePenaltyForValue(
       zeroTurnMoves,
@@ -157,34 +127,15 @@ export class BoardDifficultyEvaluator {
     const turnTargetDistance = Math.abs(zeroTurnMoves - difficultyConfig.targetZeroTurnMoves)
       + Math.abs(oneTurnMoves - difficultyConfig.targetOneTurnMoves)
       + Math.abs(twoTurnMoves - difficultyConfig.targetTwoTurnMoves);
-    const singleTurnTypeRatio = this.getMaxTurnTypeRatio(totalLegalMoves, zeroTurnMoves, oneTurnMoves, twoTurnMoves);
-    const singleTurnTypePenalty = Math.max(0, singleTurnTypeRatio - difficultyConfig.maxSingleTurnTypeRatio);
-    const missingEasyMovePenalty = Number(zeroTurnMoves === 0);
-    const missingTwoTurnPenalty = Math.max(0, difficultyConfig.minTwoTurnMoves - twoTurnMoves);
     const firstTenPenalty = Math.max(0, firstTenStepsAverageMoves - difficultyConfig.maxFirstTenAverageMoves);
 
-    // 评分越低越接近普通模式目标，用于在没有完美候选时选择最接近目标的棋盘。
-    return openingDistance * difficultyConfig.openingMoveWeight
-      + rangePenalty * difficultyConfig.outOfRangeMoveWeight
+    // Turn counts are soft scoring only; accepted does not depend on fixed turn distribution.
+    return Math.abs(openingMoveDensity - densityTarget) * 100 * difficultyConfig.openingMoveWeight
+      + densityPenalty * 100 * difficultyConfig.outOfRangeMoveWeight
       + adjacentPenalty * difficultyConfig.adjacentMoveWeight
-      + (zeroTurnPenalty + oneTurnPenalty + twoTurnPenalty + turnTargetDistance) * difficultyConfig.turnDistributionWeight
-      + missingEasyMovePenalty * difficultyConfig.missingEasyMoveWeight
-      + singleTurnTypePenalty * difficultyConfig.singleTurnTypeRatioWeight
-      + missingTwoTurnPenalty * difficultyConfig.missingTwoTurnWeight
+      + (zeroTurnPenalty + oneTurnPenalty + twoTurnPenalty + turnTargetDistance) * difficultyConfig.turnDistributionWeight * 0.15
       + firstTenPenalty * difficultyConfig.firstTenAverageWeight
       + edgeLegalMoves * difficultyConfig.edgeMoveWeight;
-  }
-
-  private getRangePenalty(totalLegalMoves: number, difficultyConfig: BoardDifficultyConfig): number {
-    if (totalLegalMoves < difficultyConfig.minOpeningMoves) {
-      return difficultyConfig.minOpeningMoves - totalLegalMoves;
-    }
-
-    if (totalLegalMoves > difficultyConfig.maxOpeningMoves) {
-      return totalLegalMoves - difficultyConfig.maxOpeningMoves;
-    }
-
-    return 0;
   }
 
   private getRangePenaltyForValue(value: number, min: number, max: number): number {
@@ -199,17 +150,12 @@ export class BoardDifficultyEvaluator {
     return 0;
   }
 
-  private getMaxTurnTypeRatio(
-    totalLegalMoves: number,
-    zeroTurnMoves: number,
-    oneTurnMoves: number,
-    twoTurnMoves: number,
-  ): number {
-    if (totalLegalMoves === 0) {
+  private getOpeningMoveDensity(totalLegalMoves: number, tileCount: number): number {
+    if (tileCount <= 0) {
       return 0;
     }
 
-    return Math.max(zeroTurnMoves, oneTurnMoves, twoTurnMoves) / totalLegalMoves;
+    return totalLegalMoves / (tileCount / 2);
   }
 
   private isAdjacent(first: GridPoint, second: GridPoint): boolean {

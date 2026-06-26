@@ -11,7 +11,7 @@ export class ResultDialogController extends Component {
   private onMenu: (() => void) | null = null;
 
   public show(
-    snapshot: GameSnapshot,
+    _snapshot: GameSnapshot,
     reason: GameEndReason,
     onRestart: () => void,
     onMenu: () => void,
@@ -31,17 +31,19 @@ export class ResultDialogController extends Component {
     graphics.rect(-width / 2, -height / 2, width, height);
     graphics.fill();
 
-    const panel = this.createPanel(Math.min(480, width * 0.82), Math.min(380, height * 0.5));
-    this.addPanelLabel(panel, 'Title', this.getTitle(reason), 0, 105, 34);
-    this.addPanelLabel(panel, 'Detail', this.getDetail(snapshot, reason), 0, 20, 22);
+    const panelWidth = Math.min(460, width * 0.82);
+    const panelHeight = Math.min(320, height * 0.42);
+    const panel = this.createPanel(panelWidth, panelHeight);
+    this.addPanelLabel(panel, 'Title', this.getTitle(reason), 0, 76, 34, panelWidth - 64, 52);
+    this.addPanelLabel(panel, 'Detail', this.getDetail(reason), 0, 12, 22, panelWidth - 72, 76);
 
     this.restartButton = this.createButton('\u91cd\u65b0\u5f00\u59cb', 180, 54);
-    this.restartButton.setPosition(-100, -105, 0);
+    this.restartButton.setPosition(-96, -92, 0);
     this.restartButton.on(Node.EventType.TOUCH_END, this.handleRestart, this);
     panel.addChild(this.restartButton);
 
     this.menuButton = this.createButton('\u8fd4\u56de\u83dc\u5355', 180, 54);
-    this.menuButton.setPosition(100, -105, 0);
+    this.menuButton.setPosition(96, -92, 0);
     this.menuButton.on(Node.EventType.TOUCH_END, this.handleMenu, this);
     panel.addChild(this.menuButton);
 
@@ -102,25 +104,34 @@ export class ResultDialogController extends Component {
     const transform = panel.addComponent(UITransform);
     const graphics = panel.addComponent(Graphics);
     transform.setContentSize(width, height);
-    graphics.fillColor = new Color(245, 236, 211, 255);
-    graphics.strokeColor = new Color(80, 62, 38, 255);
+    graphics.fillColor = new Color(244, 236, 213, 255);
+    graphics.strokeColor = new Color(75, 63, 44, 255);
     graphics.lineWidth = 3;
-    graphics.roundRect(-width / 2, -height / 2, width, height, 10);
+    graphics.roundRect(-width / 2, -height / 2, width, height, 9);
     graphics.fill();
     graphics.stroke();
 
     return panel;
   }
 
-  private addPanelLabel(parent: Node, name: string, text: string, x: number, y: number, fontSize: number): void {
+  private addPanelLabel(
+    parent: Node,
+    name: string,
+    text: string,
+    x: number,
+    y: number,
+    fontSize: number,
+    width: number,
+    height: number,
+  ): void {
     const labelNode = new Node(name);
     const transform = labelNode.addComponent(UITransform);
     const label = labelNode.addComponent(Label);
-    transform.setContentSize(390, Math.max(110, fontSize * 5));
+    transform.setContentSize(width, height);
     labelNode.setPosition(x, y, 0);
     label.string = text;
     label.fontSize = fontSize;
-    label.lineHeight = fontSize + 7;
+    label.lineHeight = fontSize + 8;
     label.color = new Color(48, 39, 28, 255);
     label.horizontalAlign = Label.HorizontalAlign.CENTER;
     label.verticalAlign = Label.VerticalAlign.CENTER;
@@ -169,23 +180,25 @@ export class ResultDialogController extends Component {
 
   private getTitle(reason: GameEndReason): string {
     if (reason === 'win') {
-      return '\u901a\u5173\u6210\u529f';
+      return '\u606d\u559c\u901a\u5173';
     }
 
     if (reason === 'deadlock') {
       return '\u65e0\u53ef\u6d88\u9664\u7ec4\u5408';
     }
 
-    return '\u65f6\u95f4\u7ed3\u675f';
+    return '\u65f6\u95f4\u8017\u5c3d';
   }
 
-  private getDetail(snapshot: GameSnapshot, reason: GameEndReason): string {
-    const prefix = `${snapshot.modeName}\u6a21\u5f0f`;
-
-    if (reason === 'deadlock') {
-      return `${prefix}\n\u672c\u5c40\u5931\u8d25\n\u5269\u4f59\u9ebb\u5c06\uff1a${snapshot.remainingTiles}`;
+  private getDetail(reason: GameEndReason): string {
+    if (reason === 'win') {
+      return '\u6240\u6709\u96c0\u724c\u5df2\u6210\u529f\u6d88\u9664';
     }
 
-    return `${prefix}\n\u5269\u4f59\u9ebb\u5c06\uff1a${snapshot.remainingTiles}`;
+    if (reason === 'deadlock') {
+      return '\u672c\u5c40\u5df2\u5f62\u6210\u6b7b\u5c40\uff0c\u8bf7\u91cd\u65b0\u6311\u6218';
+    }
+
+    return '\u8bf7\u5728\u5012\u8ba1\u65f6\u7ed3\u675f\u524d\u5b8c\u6210\u4e00\u6b21\u6d88\u9664';
   }
 }

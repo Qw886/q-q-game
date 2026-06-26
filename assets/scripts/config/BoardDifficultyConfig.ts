@@ -3,6 +3,8 @@ import type { DifficultyId } from '../core/GameTypes';
 export interface BoardDifficultyConfig {
   readonly minOpeningMoves: number;
   readonly maxOpeningMoves: number;
+  readonly minOpeningMoveDensity: number;
+  readonly maxOpeningMoveDensity: number;
   readonly maxFallbackOpeningMoves: number;
   readonly targetOpeningMoves: number;
   readonly targetZeroTurnMoves: number;
@@ -58,10 +60,12 @@ export const BOARD_DIFFICULTY_CONFIGS: Readonly<Record<DifficultyId, BoardDiffic
     minOpeningMoves: 6,
     maxOpeningMoves: 10,
     targetOpeningMoves: 8,
+    minOpeningMoveDensity: 0.2,
+    maxOpeningMoveDensity: 0.35,
     targetZeroTurnMoves: 2,
     targetOneTurnMoves: 0,
     targetTwoTurnMoves: 4,
-    maxAdjacentMatchingMoves: 2,
+    maxAdjacentMatchingMoves: 3,
     minZeroTurnMoves: 1,
     maxZeroTurnMoves: 3,
     minOneTurnMoves: 0,
@@ -71,16 +75,19 @@ export const BOARD_DIFFICULTY_CONFIGS: Readonly<Record<DifficultyId, BoardDiffic
     maxSingleTurnTypeRatio: 0.8,
     maxOptimizationIterations: 220,
     maxOptimizationMilliseconds: 700,
+    edgeMoveWeight: 4,
   },
   medium: {
     ...COMMON_WEIGHTS,
     minOpeningMoves: 5,
     maxOpeningMoves: 8,
     targetOpeningMoves: 6,
+    minOpeningMoveDensity: 0.15,
+    maxOpeningMoveDensity: 0.28,
     targetZeroTurnMoves: 1,
     targetOneTurnMoves: 0,
     targetTwoTurnMoves: 5,
-    maxAdjacentMatchingMoves: 1,
+    maxAdjacentMatchingMoves: 2,
     minZeroTurnMoves: 1,
     maxZeroTurnMoves: 2,
     minOneTurnMoves: 0,
@@ -90,16 +97,19 @@ export const BOARD_DIFFICULTY_CONFIGS: Readonly<Record<DifficultyId, BoardDiffic
     maxSingleTurnTypeRatio: 0.85,
     maxOptimizationIterations: 260,
     maxOptimizationMilliseconds: 900,
+    edgeMoveWeight: 7,
   },
   hard: {
     ...COMMON_WEIGHTS,
     minOpeningMoves: 3,
     maxOpeningMoves: 6,
     targetOpeningMoves: 4,
+    minOpeningMoveDensity: 0.1,
+    maxOpeningMoveDensity: 0.22,
     targetZeroTurnMoves: 1,
     targetOneTurnMoves: 0,
     targetTwoTurnMoves: 4,
-    maxAdjacentMatchingMoves: 1,
+    maxAdjacentMatchingMoves: 2,
     minZeroTurnMoves: 0,
     maxZeroTurnMoves: 1,
     minOneTurnMoves: 0,
@@ -109,6 +119,7 @@ export const BOARD_DIFFICULTY_CONFIGS: Readonly<Record<DifficultyId, BoardDiffic
     maxSingleTurnTypeRatio: 1,
     maxOptimizationIterations: 320,
     maxOptimizationMilliseconds: 1200,
+    edgeMoveWeight: 10,
   },
 };
 
