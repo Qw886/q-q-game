@@ -45,7 +45,6 @@ export class GameSession {
     this.generationStrategy = generatedBoard.generationStrategy;
     this.remainingTileCount = this.board.getRemainingCount();
     this.currentRemainingTime = config.roundTime;
-    this.logGenerationSummary(generatedBoard);
   }
 
   public getTiles(): readonly TileData[] {
@@ -200,13 +199,6 @@ export class GameSession {
     this.currentEndReason = reason;
     this.inputLocked = true;
     this.selectedPoint = null;
-  }
-
-  private logGenerationSummary(generatedBoard: GeneratedBoard): void {
-    const metrics = generatedBoard.difficultyMetrics;
-    console.info(
-      `[Stage5] mode=${this.config.id}, seed=${generatedBoard.seed}, strategy=${generatedBoard.generationStrategy}, elapsedMs=${generatedBoard.generationElapsedMilliseconds}, skeletonMs=${generatedBoard.skeletonElapsedMilliseconds}, optimizationMs=${generatedBoard.assignmentOptimizationElapsedMilliseconds}, optimizationIterations=${generatedBoard.optimizationIterations}, openingMoves=${metrics.totalLegalMoves}, zeroTurnMoves=${metrics.zeroTurnMoves}, oneTurnMoves=${metrics.oneTurnMoves}, twoTurnMoves=${metrics.twoTurnMoves}, adjacentMatchingMoves=${metrics.adjacentMatchingMoves}, penaltyScore=${metrics.score.toFixed(1)}, firstTenStepsAverageMoves=${metrics.firstTenStepsAverageMoves.toFixed(1)}, accepted=${metrics.accepted}`,
-    );
   }
 
   private getDisplayedRemainingSeconds(): number {

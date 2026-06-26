@@ -85,7 +85,7 @@ export class GameBootstrap extends Component {
       this.currentDifficulty = difficulty;
       this.gameSession = new GameSession(difficulty);
     } catch (error) {
-      console.error(`[Stage5] Failed to start ${difficulty.id} mode.`, error);
+      console.error(`[GameBootstrap] Failed to start ${difficulty.id} mode.`, error);
       this.showMainMenu();
       return;
     }
@@ -117,7 +117,7 @@ export class GameBootstrap extends Component {
     try {
       this.gameSession = new GameSession(difficulty);
     } catch (error) {
-      console.error(`[Stage5] Failed to restart ${difficulty.id} mode.`, error);
+      console.error(`[GameBootstrap] Failed to restart ${difficulty.id} mode.`, error);
       this.showMainMenu();
       return;
     }

@@ -68,7 +68,6 @@ export class BoardGenerator {
 
     const selected = this.selectBestCandidate(candidates);
     const totalMilliseconds = Date.now() - startedAt;
-    this.logGenerationTiming(config, candidates.length, selected, timing, totalMilliseconds);
 
     if (!this.isStrongCandidate(selected)) {
       throw new Error(`Failed to generate accepted board for ${config.id}: ${this.formatCandidateFailureReasons(config, selected)}`);
@@ -636,22 +635,6 @@ export class BoardGenerator {
     };
   }
 
-  private logGenerationTiming(
-    config: DifficultyConfig,
-    attempts: number,
-    selected: GeneratedBoardCandidate,
-    timing: GenerationTimingStats,
-    totalMilliseconds: number,
-  ): void {
-    console.log(
-      `[BoardGenerator] difficulty=${config.id} attempts=${attempts} geometryMs=${timing.geometryMilliseconds} candidateEnumMs=${timing.geometryCandidateMilliseconds} conflictBuildMs=${timing.conflictBuildMilliseconds} assignmentMs=${timing.assignmentMilliseconds} assignmentAttempts=${selected.optimizationIterations} openingMovesMs=${timing.openingMovesMilliseconds} validationMs=${timing.validationMilliseconds} edgePeelMs=${timing.edgePeelMilliseconds} totalMs=${totalMilliseconds} selected=${this.isStrongCandidate(selected) ? 'accepted' : 'backup'} validateSolution=${selected.validationPassed} tileCount=${selected.board.getRemainingCount()} openingMoves=${selected.difficultyMetrics.totalLegalMoves} openingMoveDensity=${(selected.difficultyMetrics.totalLegalMoves / (config.tileCount / 2)).toFixed(3)} zeroTurnMoves=${selected.difficultyMetrics.zeroTurnMoves} oneTurnMoves=${selected.difficultyMetrics.oneTurnMoves} twoTurnMoves=${selected.difficultyMetrics.twoTurnMoves} adjacentMatchingMoves=${selected.difficultyMetrics.adjacentMatchingMoves} difficultyAccepted=${selected.difficultyMetrics.accepted} qualityAccepted=${selected.quality.accepted} edgePeelMax=${this.getMaxEdgePeel(selected.edgePeel)} leftPeel=${this.formatPeelSteps(selected.edgePeel.leftSteps)} rightPeel=${this.formatPeelSteps(selected.edgePeel.rightSteps)} topPeel=${this.formatPeelSteps(selected.edgePeel.topSteps)} bottomPeel=${this.formatPeelSteps(selected.edgePeel.bottomSteps)} firstTenRegions=${selected.geometryAnalysis.firstTenRegionCount} reasons=${this.formatCandidateFailureReasons(config, selected)}`,
-    );
-  }
-
-  private formatPeelSteps(steps: readonly string[]): string {
-    return steps.length === 0 ? 'none' : steps.join('>');
-  }
-
   private formatCandidateFailureReasons(config: DifficultyConfig, candidate: GeneratedBoardCandidate): string {
     const reasons: string[] = [...candidate.quality.reasons];
 
@@ -751,10 +734,6 @@ export class BoardGenerator {
     const [row, column] = key.split(',').map(Number);
 
     return { row, column };
-  }
-
-  private getMaxEdgePeel(metrics: EdgePeelMetrics): number {
-    return Math.max(metrics.left, metrics.right, metrics.top, metrics.bottom);
   }
 
   private getMaxConsecutiveSameSide(sides: readonly PairSide[]): number {
