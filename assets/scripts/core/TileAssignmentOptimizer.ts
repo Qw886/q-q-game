@@ -7,6 +7,7 @@ import { SeededRandom } from './SeededRandom';
 import type { BoardDifficultyMetrics, BoardTile, DifficultyConfig, GridPoint, SolutionStep } from './GameTypes';
 
 const CONFLICT_TILE_TYPE = '__conflict__';
+const EDGE_SIDES: readonly EdgeSide[] = ['left', 'right', 'top', 'bottom'];
 
 export interface SkeletonPair {
   readonly first: GridPoint;
@@ -37,12 +38,13 @@ export class TileAssignmentOptimizer {
     const conflictStartedAt = Date.now();
     const conflictGraph = this.buildConflictGraph(config, skeletonPairs);
     const conflictBuildMilliseconds = Date.now() - conflictStartedAt;
+    const tileTypes = this.createTileTypeList(config);
     const maxAttempts = this.getMaxAssignmentAttempts(config);
     let best: TileAssignmentOptimizationResult | null = null;
 
     for (let attemptIndex = 0; attemptIndex < maxAttempts; attemptIndex += 1) {
-      const tileTypes = this.createConflictAwareAssignment(config, skeletonPairs, conflictGraph, random);
-      const candidate = this.createResult(config, skeletonPairs, tileTypes, attemptIndex + 1, startedAt);
+      const assignedTileTypes = this.createConflictAwareAssignment(config, skeletonPairs, conflictGraph, tileTypes, random);
+      const candidate = this.createResult(config, skeletonPairs, assignedTileTypes, attemptIndex + 1, startedAt);
 
       if (!best || candidate.optimizationScore < best.optimizationScore) {
         best = candidate;
@@ -57,22 +59,40 @@ export class TileAssignmentOptimizer {
     }
 
     return {
-      ...best,
+      tileTypes: best.tileTypes,
+      solution: best.solution,
+      board: best.board,
+      difficultyMetrics: best.difficultyMetrics,
+      optimizationScore: best.optimizationScore,
+      optimizationIterations: best.optimizationIterations,
       conflictBuildMilliseconds,
       elapsedMilliseconds: Date.now() - startedAt,
     };
   }
 
   private buildConflictGraph(config: DifficultyConfig, skeletonPairs: readonly SkeletonPair[]): ConflictGraph {
-    const board = new BoardState(
-      config.rows,
-      config.columns,
-      skeletonPairs.flatMap((pair) => [
+    const boardTiles: BoardTile[] = [];
+
+    for (let index = 0; index < skeletonPairs.length; index += 1) {
+      const pair = skeletonPairs[index];
+      boardTiles.push(
         { position: pair.first, type: CONFLICT_TILE_TYPE },
         { position: pair.second, type: CONFLICT_TILE_TYPE },
-      ]),
-    );
-    const graph: number[][] = Array.from({ length: skeletonPairs.length }, () => Array(skeletonPairs.length).fill(0));
+      );
+    }
+
+    const board = new BoardState(config.rows, config.columns, boardTiles);
+    const graph: number[][] = [];
+
+    for (let row = 0; row < skeletonPairs.length; row += 1) {
+      const weights: number[] = [];
+
+      for (let column = 0; column < skeletonPairs.length; column += 1) {
+        weights.push(0);
+      }
+
+      graph.push(weights);
+    }
 
     for (let firstIndex = 0; firstIndex < skeletonPairs.length - 1; firstIndex += 1) {
       for (let secondIndex = firstIndex + 1; secondIndex < skeletonPairs.length; secondIndex += 1) {
@@ -87,7 +107,7 @@ export class TileAssignmentOptimizer {
 
     return {
       weights: graph,
-      degrees: graph.map((row) => row.reduce((sum, weight) => sum + weight, 0)),
+      degrees: this.calculateConflictDegrees(graph),
     };
   }
 
@@ -126,22 +146,43 @@ export class TileAssignmentOptimizer {
     return weight;
   }
 
+  private calculateConflictDegrees(graph: readonly (readonly number[])[]): number[] {
+    const degrees: number[] = [];
+
+    for (let rowIndex = 0; rowIndex < graph.length; rowIndex += 1) {
+      const row = graph[rowIndex];
+      let degree = 0;
+
+      for (let columnIndex = 0; columnIndex < row.length; columnIndex += 1) {
+        degree += row[columnIndex];
+      }
+
+      degrees.push(degree);
+    }
+
+    return degrees;
+  }
+
   private createConflictAwareAssignment(
     config: DifficultyConfig,
     skeletonPairs: readonly SkeletonPair[],
     conflictGraph: ConflictGraph,
+    tileTypes: readonly string[],
     random: SeededRandom,
   ): string[] {
-    const remainingCounts = this.createPairTypeCounts(config);
+    const remainingCounts = this.createPairTypeCounts(config, tileTypes);
     const assignedTypes: Array<string | null> = Array(skeletonPairs.length).fill(null);
     const typeSideCounts = new Map<string, Map<EdgeSide, number>>();
-    const shuffledIndexes = random.shuffle(Array.from({ length: skeletonPairs.length }, (_, index) => index));
+    const shuffledIndexes = random.shuffle(this.createPairIndexes(skeletonPairs.length));
     const order = shuffledIndexes.sort((first, second) => {
       const degreeDelta = conflictGraph.degrees[second] - conflictGraph.degrees[first];
       return degreeDelta !== 0 ? degreeDelta : first - second;
     });
 
-    for (const pairIndex of order) {
+    this.validatePairTypeCapacity(config, skeletonPairs.length, remainingCounts, tileTypes);
+
+    for (let orderIndex = 0; orderIndex < order.length; orderIndex += 1) {
+      const pairIndex = order[orderIndex];
       const selectedType = this.selectBestTypeForPair(
         config,
         pairIndex,
@@ -149,6 +190,7 @@ export class TileAssignmentOptimizer {
         conflictGraph,
         assignedTypes,
         remainingCounts,
+        tileTypes,
         typeSideCounts,
         random,
       );
@@ -157,13 +199,19 @@ export class TileAssignmentOptimizer {
       this.addTypeSideCounts(typeSideCounts, selectedType, this.getPairSideCounts(config, skeletonPairs[pairIndex]));
     }
 
-    return assignedTypes.map((tileType) => {
+    const assignedTileTypes: string[] = [];
+
+    for (let index = 0; index < assignedTypes.length; index += 1) {
+      const tileType = assignedTypes[index];
+
       if (!tileType) {
-        throw new Error('Tile assignment did not fill every skeleton pair.');
+        throw new Error(`Tile assignment did not fill skeleton pair ${index} of ${skeletonPairs.length}.`);
       }
 
-      return tileType;
-    });
+      assignedTileTypes.push(tileType);
+    }
+
+    return assignedTileTypes;
   }
 
   private selectBestTypeForPair(
@@ -173,15 +221,32 @@ export class TileAssignmentOptimizer {
     conflictGraph: ConflictGraph,
     assignedTypes: readonly (string | null)[],
     remainingCounts: ReadonlyMap<string, number>,
+    tileTypes: readonly string[],
     typeSideCounts: ReadonlyMap<string, ReadonlyMap<EdgeSide, number>>,
     random: SeededRandom,
   ): string {
     const pairSideCounts = this.getPairSideCounts(config, skeletonPairs[pairIndex]);
-    const candidates = random.shuffle([...remainingCounts.entries()].filter(([, count]) => count > 0).map(([tileType]) => tileType));
+    const availableTypes: string[] = [];
+
+    for (let index = 0; index < tileTypes.length; index += 1) {
+      const tileType = tileTypes[index];
+
+      if ((remainingCounts.get(tileType) ?? 0) > 0) {
+        availableTypes.push(tileType);
+      }
+    }
+
+    const candidates = random.shuffle(availableTypes);
+
+    if (candidates.length === 0) {
+      throw new Error(`No tile type remains for skeleton pair ${pairIndex} in difficulty: ${config.id}.`);
+    }
+
     let bestType = candidates[0];
     let bestScore = Infinity;
 
-    for (const tileType of candidates) {
+    for (let candidateIndex = 0; candidateIndex < candidates.length; candidateIndex += 1) {
+      const tileType = candidates[candidateIndex];
       let score = 0;
 
       for (let assignedIndex = 0; assignedIndex < assignedTypes.length; assignedIndex += 1) {
@@ -190,7 +255,10 @@ export class TileAssignmentOptimizer {
         }
       }
 
-      for (const [side, count] of pairSideCounts) {
+      for (let sideIndex = 0; sideIndex < EDGE_SIDES.length; sideIndex += 1) {
+        const side = EDGE_SIDES[sideIndex];
+        const count = pairSideCounts.get(side) ?? 0;
+
         score += (typeSideCounts.get(tileType)?.get(side) ?? 0) * count * this.getSideConcentrationWeight(config);
       }
 
@@ -203,14 +271,70 @@ export class TileAssignmentOptimizer {
     return bestType;
   }
 
-  private createPairTypeCounts(config: DifficultyConfig): Map<string, number> {
+  private createTileTypeList(config: DifficultyConfig): string[] {
+    const counts = getTileTypeCounts(config.id);
+    const tileTypes: string[] = [];
+
+    for (const tileType of Object.keys(counts)) {
+      tileTypes.push(tileType);
+    }
+
+    return tileTypes;
+  }
+
+  private createPairIndexes(pairCount: number): number[] {
+    const indexes: number[] = [];
+
+    for (let index = 0; index < pairCount; index += 1) {
+      indexes.push(index);
+    }
+
+    return indexes;
+  }
+
+  private validatePairTypeCapacity(
+    config: DifficultyConfig,
+    skeletonPairCount: number,
+    remainingCounts: ReadonlyMap<string, number>,
+    tileTypes: readonly string[],
+  ): void {
+    let totalPairs = 0;
+
+    for (let index = 0; index < tileTypes.length; index += 1) {
+      totalPairs += remainingCounts.get(tileTypes[index]) ?? 0;
+    }
+
+    if (totalPairs !== skeletonPairCount) {
+      throw new Error(`Tile pair capacity ${totalPairs} does not match skeleton pair count ${skeletonPairCount} for difficulty: ${config.id}.`);
+    }
+  }
+
+  private createPairTypeCounts(config: DifficultyConfig, tileTypes: readonly string[]): Map<string, number> {
+    const counts = getTileTypeCounts(config.id);
     const pairCounts = new Map<string, number>();
 
-    for (const [tileType, count] of Object.entries(getTileTypeCounts(config.id))) {
+    for (let index = 0; index < tileTypes.length; index += 1) {
+      const tileType = tileTypes[index];
+      const count = counts[tileType];
+
+      if (!Number.isInteger(count) || count <= 0 || count % 2 !== 0) {
+        throw new Error(`Invalid tile type count for ${tileType} in difficulty: ${config.id}.`);
+      }
+
       pairCounts.set(tileType, count / 2);
     }
 
     return pairCounts;
+  }
+
+  private copyTileTypes(tileTypes: readonly string[]): string[] {
+    const copy: string[] = [];
+
+    for (let index = 0; index < tileTypes.length; index += 1) {
+      copy.push(tileTypes[index]);
+    }
+
+    return copy;
   }
 
   private createResult(
@@ -245,7 +369,7 @@ export class TileAssignmentOptimizer {
     const difficultyMetrics = this.evaluator.evaluate(board, solution, config);
 
     return {
-      tileTypes: [...tileTypes],
+      tileTypes: this.copyTileTypes(tileTypes),
       solution,
       board,
       difficultyMetrics,
@@ -290,7 +414,10 @@ export class TileAssignmentOptimizer {
   ): void {
     const sideCounts = typeSideCounts.get(tileType) ?? new Map<EdgeSide, number>();
 
-    for (const [side, count] of countsToAdd) {
+    for (let sideIndex = 0; sideIndex < EDGE_SIDES.length; sideIndex += 1) {
+      const side = EDGE_SIDES[sideIndex];
+      const count = countsToAdd.get(side) ?? 0;
+
       sideCounts.set(side, (sideCounts.get(side) ?? 0) + count);
     }
 
@@ -300,8 +427,13 @@ export class TileAssignmentOptimizer {
   private getPairSideCounts(config: DifficultyConfig, pair: SkeletonPair): Map<EdgeSide, number> {
     const counts = new Map<EdgeSide, number>();
 
-    for (const point of [pair.first, pair.second]) {
-      for (const side of this.getPointSides(config, point)) {
+    const points = [pair.first, pair.second];
+
+    for (let pointIndex = 0; pointIndex < points.length; pointIndex += 1) {
+      const pointSides = this.getPointSides(config, points[pointIndex]);
+
+      for (let sideIndex = 0; sideIndex < pointSides.length; sideIndex += 1) {
+        const side = pointSides[sideIndex];
         counts.set(side, (counts.get(side) ?? 0) + 1);
       }
     }
@@ -350,7 +482,18 @@ export class TileAssignmentOptimizer {
   private getSharedNearSides(config: DifficultyConfig, first: GridPoint, second: GridPoint): EdgeSide[] {
     const firstSides = new Set(this.getPointSides(config, first));
 
-    return this.getPointSides(config, second).filter((side) => firstSides.has(side));
+    const secondSides = this.getPointSides(config, second);
+    const sharedSides: EdgeSide[] = [];
+
+    for (let index = 0; index < secondSides.length; index += 1) {
+      const side = secondSides[index];
+
+      if (firstSides.has(side)) {
+        sharedSides.push(side);
+      }
+    }
+
+    return sharedSides;
   }
 
   private pathUsesSideChannel(points: readonly GridPoint[], config: DifficultyConfig, side: EdgeSide): boolean {

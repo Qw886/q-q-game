@@ -28,7 +28,11 @@ export class SeededRandom {
   }
 
   public shuffle<T>(items: readonly T[]): T[] {
-    const result = [...items];
+    const result: T[] = [];
+
+    for (let index = 0; index < items.length; index += 1) {
+      result.push(items[index]);
+    }
 
     for (let index = result.length - 1; index > 0; index -= 1) {
       const swapIndex = this.nextInt(index + 1);

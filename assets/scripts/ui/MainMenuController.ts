@@ -17,9 +17,10 @@ export class MainMenuController extends Component {
     }
 
     const rootSize = this.getRootSize();
-    this.createTitle(rootSize.height);
-    this.createModeButtons(difficulties);
-    this.createRuleHint(rootSize.height);
+    const layout = this.getMenuLayout(rootSize.height);
+    this.createTitle(layout);
+    this.createModeButtons(difficulties, layout);
+    this.createRuleHint(layout);
     this.initialized = true;
   }
 
@@ -27,16 +28,16 @@ export class MainMenuController extends Component {
     this.clearButtonEvents();
   }
 
-  private createTitle(height: number): void {
+  private createTitle(layout: MenuLayout): void {
     const titleNode = new Node('Title');
     const transform = titleNode.addComponent(UITransform);
     const label = titleNode.addComponent(Label);
 
-    transform.setContentSize(560, 74);
-    titleNode.setPosition(0, height / 2 - 138, 0);
+    transform.setContentSize(560, layout.titleHeight);
+    titleNode.setPosition(0, layout.titleY, 0);
     label.string = '\u96c0\u724c\u8fde\u7ebf';
-    label.fontSize = 58;
-    label.lineHeight = 66;
+    label.fontSize = layout.titleFontSize;
+    label.lineHeight = layout.titleLineHeight;
     label.color = new Color(255, 244, 205, 255);
     label.horizontalAlign = Label.HorizontalAlign.CENTER;
     label.verticalAlign = Label.VerticalAlign.CENTER;
@@ -47,27 +48,27 @@ export class MainMenuController extends Component {
     const subtitleTransform = subtitleNode.addComponent(UITransform);
     const subtitle = subtitleNode.addComponent(Label);
 
-    subtitleTransform.setContentSize(600, 42);
-    subtitleNode.setPosition(0, height / 2 - 197, 0);
+    subtitleTransform.setContentSize(600, layout.subtitleHeight);
+    subtitleNode.setPosition(0, layout.subtitleY, 0);
     subtitle.string = '\u6700\u591a\u4e24\u6b21\u8f6c\u5f2f\uff0c\u8fde\u63a5\u76f8\u540c\u96c0\u724c';
-    subtitle.fontSize = 23;
-    subtitle.lineHeight = 30;
+    subtitle.fontSize = layout.subtitleFontSize;
+    subtitle.lineHeight = layout.subtitleLineHeight;
     subtitle.color = new Color(208, 231, 205, 255);
     subtitle.horizontalAlign = Label.HorizontalAlign.CENTER;
     subtitle.verticalAlign = Label.VerticalAlign.CENTER;
     this.node.addChild(subtitleNode);
   }
 
-  private createModeButtons(difficulties: readonly DifficultyConfig[]): void {
+  private createModeButtons(difficulties: readonly DifficultyConfig[], layout: MenuLayout): void {
     difficulties.forEach((difficulty, index) => {
-      const buttonNode = this.createModeButton(difficulty);
+      const buttonNode = this.createModeButton(difficulty, layout);
       const callback = (): void => this.handleModeSelected(difficulty.id);
       const pressCallback = (): void => this.redrawModeButton(buttonNode, difficulty, 'pressed');
       const releaseCallback = (): void => this.redrawModeButton(buttonNode, difficulty, 'default');
       const hoverCallback = (): void => this.redrawModeButton(buttonNode, difficulty, 'hover');
       const leaveCallback = (): void => this.redrawModeButton(buttonNode, difficulty, 'default');
 
-      buttonNode.setPosition(0, 160 - index * 130, 0);
+      buttonNode.setPosition(0, layout.firstButtonY - index * layout.buttonGap, 0);
       buttonNode.on(Node.EventType.TOUCH_START, pressCallback, this);
       buttonNode.on(Node.EventType.TOUCH_END, callback, this);
       buttonNode.on(Node.EventType.TOUCH_END, releaseCallback, this);
@@ -88,16 +89,16 @@ export class MainMenuController extends Component {
     });
   }
 
-  private createRuleHint(height: number): void {
+  private createRuleHint(layout: MenuLayout): void {
     const hintNode = new Node('RuleHint');
     const transform = hintNode.addComponent(UITransform);
     const label = hintNode.addComponent(Label);
 
-    transform.setContentSize(620, 72);
-    hintNode.setPosition(0, Math.max(-height / 2 + 138, -288), 0);
+    transform.setContentSize(620, layout.hintHeight);
+    hintNode.setPosition(0, layout.hintY, 0);
     label.string = '\u9009\u62e9\u4e24\u5f20\u76f8\u540c\u96c0\u724c\n\u8fde\u7ebf\u8def\u5f84\u6700\u591a\u8f6c\u5f2f\u4e24\u6b21';
-    label.fontSize = 18;
-    label.lineHeight = 26;
+    label.fontSize = layout.hintFontSize;
+    label.lineHeight = layout.hintLineHeight;
     label.color = new Color(230, 245, 210, 255);
     label.horizontalAlign = Label.HorizontalAlign.CENTER;
     label.verticalAlign = Label.VerticalAlign.CENTER;
@@ -113,9 +114,9 @@ export class MainMenuController extends Component {
     }
   }
 
-  private createModeButton(config: DifficultyConfig): Node {
-    const width = 486;
-    const height = 106;
+  private createModeButton(config: DifficultyConfig, layout: MenuLayout): Node {
+    const width = layout.buttonWidth;
+    const height = layout.buttonHeight;
     const buttonNode = new Node(`${config.id}ModeButton`);
     const transform = buttonNode.addComponent(UITransform);
     const graphics = buttonNode.addComponent(Graphics);
@@ -130,6 +131,7 @@ export class MainMenuController extends Component {
       width,
       height,
       this.getModeAccentColor(config.id),
+      layout,
     );
 
     return buttonNode;
@@ -142,15 +144,16 @@ export class MainMenuController extends Component {
     width: number,
     height: number,
     accentColor: Color,
+    layout: MenuLayout,
   ): void {
     const titleNode = new Node('Title');
     const titleTransform = titleNode.addComponent(UITransform);
     const titleLabel = titleNode.addComponent(Label);
-    titleTransform.setContentSize(width, 44);
-    titleNode.setPosition(0, 20, 0);
+    titleTransform.setContentSize(width, layout.buttonTitleHeight);
+    titleNode.setPosition(0, layout.buttonTitleY, 0);
     titleLabel.string = title;
-    titleLabel.fontSize = 28;
-    titleLabel.lineHeight = 34;
+    titleLabel.fontSize = layout.buttonTitleFontSize;
+    titleLabel.lineHeight = layout.buttonTitleLineHeight;
     titleLabel.color = accentColor;
     titleLabel.horizontalAlign = Label.HorizontalAlign.CENTER;
     titleLabel.verticalAlign = Label.VerticalAlign.CENTER;
@@ -159,11 +162,11 @@ export class MainMenuController extends Component {
     const detailNode = new Node('Detail');
     const detailTransform = detailNode.addComponent(UITransform);
     const detailLabel = detailNode.addComponent(Label);
-    detailTransform.setContentSize(width - 42, 36);
-    detailNode.setPosition(0, -24, 0);
+    detailTransform.setContentSize(width - 42, layout.buttonDetailHeight);
+    detailNode.setPosition(0, layout.buttonDetailY, 0);
     detailLabel.string = subtitle;
-    detailLabel.fontSize = 19;
-    detailLabel.lineHeight = 26;
+    detailLabel.fontSize = layout.buttonDetailFontSize;
+    detailLabel.lineHeight = layout.buttonDetailLineHeight;
     detailLabel.color = new Color(69, 58, 42, 255);
     detailLabel.horizontalAlign = Label.HorizontalAlign.CENTER;
     detailLabel.verticalAlign = Label.VerticalAlign.CENTER;
@@ -249,6 +252,69 @@ export class MainMenuController extends Component {
 
     return { width, height };
   }
+
+  private getMenuLayout(height: number): MenuLayout {
+    if (height < 900) {
+      const firstButtonY = Math.min(44, height / 2 - 315);
+      const buttonGap = 92;
+      const buttonHeight = 84;
+      const hardButtonCenterY = firstButtonY - buttonGap * 2;
+
+      return {
+        titleY: height / 2 - 150,
+        titleHeight: 58,
+        titleFontSize: 46,
+        titleLineHeight: 54,
+        subtitleY: height / 2 - 205,
+        subtitleHeight: 34,
+        subtitleFontSize: 19,
+        subtitleLineHeight: 26,
+        firstButtonY,
+        buttonGap,
+        buttonWidth: 420,
+        buttonHeight,
+        buttonTitleY: 16,
+        buttonTitleHeight: 36,
+        buttonTitleFontSize: 23,
+        buttonTitleLineHeight: 30,
+        buttonDetailY: -21,
+        buttonDetailHeight: 28,
+        buttonDetailFontSize: 15,
+        buttonDetailLineHeight: 22,
+        hintY: Math.max(-height / 2 + 52, hardButtonCenterY - buttonHeight / 2 - 44),
+        hintHeight: 48,
+        hintFontSize: 15,
+        hintLineHeight: 22,
+      };
+    }
+
+    return {
+      titleY: height / 2 - 138,
+      titleHeight: 74,
+      titleFontSize: 58,
+      titleLineHeight: 66,
+      subtitleY: height / 2 - 197,
+      subtitleHeight: 42,
+      subtitleFontSize: 23,
+      subtitleLineHeight: 30,
+      firstButtonY: Math.min(120, height / 2 - 360),
+      buttonGap: 130,
+      buttonWidth: 486,
+      buttonHeight: 106,
+      buttonTitleY: 20,
+      buttonTitleHeight: 44,
+      buttonTitleFontSize: 28,
+      buttonTitleLineHeight: 34,
+      buttonDetailY: -24,
+      buttonDetailHeight: 36,
+      buttonDetailFontSize: 19,
+      buttonDetailLineHeight: 26,
+      hintY: Math.max(-height / 2 + 138, -288),
+      hintHeight: 72,
+      hintFontSize: 18,
+      hintLineHeight: 26,
+    };
+  }
 }
 
 interface ButtonBinding {
@@ -263,3 +329,30 @@ interface ButtonBinding {
 }
 
 type ModeButtonState = 'default' | 'hover' | 'pressed';
+
+interface MenuLayout {
+  readonly titleY: number;
+  readonly titleHeight: number;
+  readonly titleFontSize: number;
+  readonly titleLineHeight: number;
+  readonly subtitleY: number;
+  readonly subtitleHeight: number;
+  readonly subtitleFontSize: number;
+  readonly subtitleLineHeight: number;
+  readonly firstButtonY: number;
+  readonly buttonGap: number;
+  readonly buttonWidth: number;
+  readonly buttonHeight: number;
+  readonly buttonTitleY: number;
+  readonly buttonTitleHeight: number;
+  readonly buttonTitleFontSize: number;
+  readonly buttonTitleLineHeight: number;
+  readonly buttonDetailY: number;
+  readonly buttonDetailHeight: number;
+  readonly buttonDetailFontSize: number;
+  readonly buttonDetailLineHeight: number;
+  readonly hintY: number;
+  readonly hintHeight: number;
+  readonly hintFontSize: number;
+  readonly hintLineHeight: number;
+}

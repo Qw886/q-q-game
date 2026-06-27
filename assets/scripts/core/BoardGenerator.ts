@@ -705,18 +705,24 @@ export class BoardGenerator {
   private createGeometryBoard(config: DifficultyConfig, occupied: ReadonlySet<string>): BoardState {
     const tiles: BoardTile[] = [];
 
-    for (const key of occupied) {
+    occupied.forEach((key) => {
       tiles.push({
         position: this.parsePointKey(key),
         type: GEOMETRY_TILE_TYPE,
       });
-    }
+    });
 
     return new BoardState(config.rows, config.columns, tiles);
   }
 
   private getOccupiedPoints(occupied: ReadonlySet<string>): GridPoint[] {
-    return [...occupied].map((key) => this.parsePointKey(key));
+    const points: GridPoint[] = [];
+
+    occupied.forEach((key) => {
+      points.push(this.parsePointKey(key));
+    });
+
+    return points;
   }
 
   private getPairKey(first: GridPoint, second: GridPoint): string {
@@ -731,7 +737,22 @@ export class BoardGenerator {
   }
 
   private parsePointKey(key: string): GridPoint {
-    const [row, column] = key.split(',').map(Number);
+    if (typeof key !== 'string') {
+      throw new TypeError(`[BoardGenerator] Invalid point key type: ${typeof key}`);
+    }
+
+    const parts = key.split(',');
+
+    if (parts.length !== 2) {
+      throw new Error(`[BoardGenerator] Invalid point key: ${key}`);
+    }
+
+    const row = Number(parts[0]);
+    const column = Number(parts[1]);
+
+    if (!Number.isInteger(row) || !Number.isInteger(column)) {
+      throw new Error(`[BoardGenerator] Invalid point key: ${key}`);
+    }
 
     return { row, column };
   }
