@@ -35,7 +35,7 @@ export class MainMenuController extends Component {
 
     transform.setContentSize(560, layout.titleHeight);
     titleNode.setPosition(0, layout.titleY, 0);
-    label.string = '\u96c0\u724c\u8fde\u7ebf';
+    label.string = 'Q-q';
     label.fontSize = layout.titleFontSize;
     label.lineHeight = layout.titleLineHeight;
     label.color = new Color(255, 244, 205, 255);
