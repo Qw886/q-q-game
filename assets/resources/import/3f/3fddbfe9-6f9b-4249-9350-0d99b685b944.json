@@ -1,0 +1,1 @@
+[1,0,0,[["cc.TextAsset",["_name","text"],1]],[[0,0,1,3]],[[0,"README","Place the shared tile background SpriteFrame source here.\n\nExpected file:\n\n- `tile_bg.png`\n\nRecommended size: 256x320 or another vertical 3:4 ratio image with a transparent background.\n"]],0,0,[],[],[]]
