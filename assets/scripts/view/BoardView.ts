@@ -1,4 +1,4 @@
-import { _decorator, Color, Component, Graphics, Label, Node, UITransform, Vec3 } from 'cc';
+import { _decorator, Color, Component, Graphics, Label, Node, tween, Tween, UITransform, Vec3 } from 'cc';
 import { GameSession } from '../core/GameSession';
 import { GameEndReason, GridPoint, TileClickResult, TileData } from '../core/GameTypes';
 import { HudController } from '../ui/HudController';
@@ -13,6 +13,10 @@ interface BoardTileBinding {
   readonly view: TileView;
   readonly point: GridPoint;
   readonly onClick: () => void;
+}
+
+interface VibrationNavigator {
+  vibrate?: (pattern: number | number[]) => boolean;
 }
 
 export interface BoardViewDiagnostics {
@@ -263,6 +267,7 @@ export class BoardView extends Component {
       }
 
       this.lineClearScheduled = false;
+      this.playSuccessImpactFeedback();
       this.getTileView(result.first)?.playRemoveAnimation();
       this.getTileView(result.second)?.playRemoveAnimation();
       this.scheduleOnce(() => {
@@ -351,6 +356,7 @@ export class BoardView extends Component {
     this.finishRemovalScheduled = false;
     this.connectionAnimationId += 1;
     this.session?.cancelPendingAction();
+    this.stopBoardImpactAnimation();
     this.stopTileAnimations();
     this.clearTileEvents();
     this.clearBackButtonEvent();
@@ -385,6 +391,49 @@ export class BoardView extends Component {
         binding.view.stopAnimationsForCleanup();
       }
     }
+  }
+
+  private playSuccessImpactFeedback(): void {
+    this.triggerDeviceVibration();
+    this.playBoardImpactShake();
+  }
+
+  private triggerDeviceVibration(): void {
+    const globalWithNavigator = globalThis as typeof globalThis & { navigator?: VibrationNavigator };
+    const navigator = globalWithNavigator.navigator;
+
+    if (typeof navigator?.vibrate !== 'function') {
+      return;
+    }
+
+    try {
+      navigator.vibrate(35);
+    } catch {
+      // 部分桌面预览环境暴露了 vibrate 方法但不允许调用，忽略即可。
+    }
+  }
+
+  private playBoardImpactShake(): void {
+    if (!this.boardNode?.isValid) {
+      return;
+    }
+
+    this.stopBoardImpactAnimation();
+    this.boardNode.setPosition(Vec3.ZERO);
+    tween(this.boardNode)
+      .to(0.035, { position: new Vec3(3, 0, 0) })
+      .to(0.035, { position: new Vec3(-3, 0, 0) })
+      .to(0.04, { position: Vec3.ZERO })
+      .start();
+  }
+
+  private stopBoardImpactAnimation(): void {
+    if (!this.boardNode?.isValid) {
+      return;
+    }
+
+    Tween.stopAllByTarget(this.boardNode);
+    this.boardNode.setPosition(Vec3.ZERO);
   }
 
   private clearBackButtonEvent(): void {
@@ -471,14 +520,18 @@ export class BoardView extends Component {
     const hudHeight = this.clamp(height * 0.1, 64, 128);
     const bottomHeight = this.clamp(height * 0.12, 76, 150);
     const boardAreaHeight = Math.max(120, height - hudHeight - bottomHeight);
-    const sidePadding = this.clamp(width * 0.035, 18, 42);
-    const verticalPadding = this.clamp(boardAreaHeight * 0.025, 10, 28);
+    const sidePadding = this.clamp(width * 0.055, 28, 62);
+    const verticalPadding = this.clamp(boardAreaHeight * 0.04, 18, 46);
     const gap = this.clamp(Math.min(width, height) * 0.007, 3, 8);
     const availableWidth = Math.max(120, width - sidePadding * 2);
     const availableHeight = Math.max(120, boardAreaHeight - verticalPadding * 2);
     const tileAspect = 3 / 4;
-    const widthLimitedTileWidth = (availableWidth - gap * (columns - 1)) / columns;
-    const heightLimitedTileWidth = ((availableHeight - gap * (rows - 1)) / rows) * tileAspect;
+
+    // 寻路允许从棋盘外围虚拟空白区域绕行，连线会画到真实棋盘外侧。
+    // 尺寸计算时按“真实棋盘 + 一圈虚拟通道”适配，避免手机侧边连线溢出屏幕。
+    const lineSafetyPadding = this.clamp(Math.min(width, boardAreaHeight) * 0.02, 10, 24);
+    const widthLimitedTileWidth = (availableWidth - gap * (columns + 1) - lineSafetyPadding) / (columns + 1);
+    const heightLimitedTileWidth = ((availableHeight - gap * (rows + 1) - lineSafetyPadding) / (rows + 1)) * tileAspect;
     const tileWidth = Math.floor(Math.max(24, Math.min(widthLimitedTileWidth, heightLimitedTileWidth)));
     const tileHeight = Math.floor(tileWidth / tileAspect);
     const boardWidth = tileWidth * columns + gap * (columns - 1);

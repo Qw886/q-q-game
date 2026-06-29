@@ -17,6 +17,7 @@ export class TileView extends Component {
   private removed = false;
   private readonly basePosition = new Vec3();
   private backgroundFallbackNode: Node | null = null;
+  private bevelNode: Node | null = null;
   private backgroundNode: Node | null = null;
   private backgroundSprite: Sprite | null = null;
   private fallbackLabelNode: Node | null = null;
@@ -138,6 +139,7 @@ export class TileView extends Component {
   private createLayerNodes(tile: TileData): void {
     this.createShadowLayer();
     this.createBackgroundLayer();
+    this.createBevelLayer();
     this.createFaceLayer();
     this.createFallbackLabelLayer(tile.type);
     this.createHighlightLayer();
@@ -150,9 +152,15 @@ export class TileView extends Component {
     const graphics = shadowNode.addComponent(Graphics);
 
     transform.setContentSize(this.tileWidth, this.tileHeight);
-    shadowNode.setPosition(2, -3, 0);
-    graphics.fillColor = new Color(0, 0, 0, 70);
-    graphics.roundRect(-this.tileWidth / 2, -this.tileHeight / 2, this.tileWidth, this.tileHeight, this.getCornerRadius());
+    shadowNode.setPosition(this.tileWidth * 0.055, -this.tileHeight * 0.06, 0);
+    graphics.fillColor = new Color(0, 0, 0, 86);
+    graphics.roundRect(
+      -this.tileWidth / 2,
+      -this.tileHeight / 2,
+      this.tileWidth,
+      this.tileHeight,
+      this.getCornerRadius(),
+    );
     graphics.fill();
     this.node.addChild(shadowNode);
   }
@@ -171,6 +179,16 @@ export class TileView extends Component {
     this.backgroundSprite.sizeMode = Sprite.SizeMode.CUSTOM;
     transform.setContentSize(this.tileWidth, this.tileHeight);
     this.node.addChild(this.backgroundNode);
+  }
+
+  private createBevelLayer(): void {
+    this.bevelNode = new Node('Bevel');
+    const transform = this.bevelNode.addComponent(UITransform);
+    const graphics = this.bevelNode.addComponent(Graphics);
+
+    transform.setContentSize(this.tileWidth, this.tileHeight);
+    this.drawBevel(graphics);
+    this.node.addChild(this.bevelNode);
   }
 
   private createFaceLayer(): void {
@@ -268,8 +286,50 @@ export class TileView extends Component {
     }
 
     const graphics = this.backgroundFallbackNode.addComponent(Graphics);
+    const radius = this.getCornerRadius();
+
+    graphics.fillColor = new Color(171, 132, 75, 255);
+    graphics.roundRect(-this.tileWidth / 2, -this.tileHeight / 2 - 1, this.tileWidth, this.tileHeight, radius);
+    graphics.fill();
     graphics.fillColor = this.backgroundColor;
-    graphics.roundRect(-this.tileWidth / 2, -this.tileHeight / 2, this.tileWidth, this.tileHeight, this.getCornerRadius());
+    graphics.roundRect(-this.tileWidth / 2, -this.tileHeight / 2 + this.tileHeight * 0.035, this.tileWidth, this.tileHeight * 0.965, radius);
+    graphics.fill();
+  }
+
+  private drawBevel(graphics: Graphics): void {
+    const radius = this.getCornerRadius();
+    const inset = Math.max(2, this.tileWidth * 0.055);
+
+    graphics.clear();
+    graphics.strokeColor = new Color(255, 252, 230, 150);
+    graphics.lineWidth = Math.max(2, this.tileWidth * 0.035);
+    graphics.roundRect(
+      -this.tileWidth / 2 + inset,
+      -this.tileHeight / 2 + inset + this.tileHeight * 0.035,
+      this.tileWidth - inset * 2,
+      this.tileHeight - inset * 2,
+      Math.max(2, radius - 2),
+    );
+    graphics.stroke();
+
+    graphics.fillColor = new Color(255, 255, 240, 86);
+    graphics.roundRect(
+      -this.tileWidth / 2 + inset * 1.4,
+      this.tileHeight / 2 - inset * 2.4,
+      this.tileWidth - inset * 2.8,
+      Math.max(2, this.tileHeight * 0.055),
+      Math.max(2, radius * 0.45),
+    );
+    graphics.fill();
+
+    graphics.fillColor = new Color(120, 84, 43, 42);
+    graphics.roundRect(
+      -this.tileWidth / 2 + inset * 1.2,
+      -this.tileHeight / 2 + inset * 0.9,
+      this.tileWidth - inset * 2.4,
+      Math.max(2, this.tileHeight * 0.055),
+      Math.max(2, radius * 0.35),
+    );
     graphics.fill();
   }
 
@@ -361,6 +421,7 @@ export class TileView extends Component {
 
   private clearNodeReferences(): void {
     this.backgroundFallbackNode = null;
+    this.bevelNode = null;
     this.backgroundNode = null;
     this.backgroundSprite = null;
     this.fallbackLabelNode = null;

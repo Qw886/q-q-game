@@ -1,4 +1,4 @@
-import { _decorator, Canvas, Color, Component, Graphics, isValid, Node, UITransform } from 'cc';
+import { _decorator, Canvas, Color, Component, Graphics, isValid, Node, resources, Sprite, SpriteFrame, UITransform } from 'cc';
 import { DIFFICULTIES } from '../config/DifficultyConfig';
 import { GameSession } from '../core/GameSession';
 import type { DifficultyConfig } from '../core/GameTypes';
@@ -6,6 +6,9 @@ import { BoardView } from '../view/BoardView';
 import { MainMenuController } from '../ui/MainMenuController';
 
 const { ccclass } = _decorator;
+const MENU_BACKGROUND_PATH = 'backgrounds/menu_landscape/spriteFrame';
+const GAME_BACKGROUND_PATH = 'backgrounds/game_landscape/spriteFrame';
+const MENU_BACKGROUND_ASPECT_RATIO = 9 / 16;
 
 @ccclass('GameBootstrap')
 export class GameBootstrap extends Component {
@@ -16,6 +19,16 @@ export class GameBootstrap extends Component {
   private boardView: BoardView | null = null;
   private gameSession: GameSession | null = null;
   private currentDifficulty: DifficultyConfig | null = null;
+  private menuBackgroundNode: Node | null = null;
+  private menuBackgroundTransform: UITransform | null = null;
+  private menuBackgroundSprite: Sprite | null = null;
+  private menuBackgroundTime = 0;
+  private gameBackgroundNode: Node | null = null;
+  private gameBackgroundTransform: UITransform | null = null;
+  private gameBackgroundSprite: Sprite | null = null;
+  private gameBackgroundTime = 0;
+  private backgroundOverlayNode: Node | null = null;
+  private backgroundOverlayGraphics: Graphics | null = null;
   private activeScreen: 'menu' | 'game' = 'menu';
   private lastRootWidth = 0;
   private lastRootHeight = 0;
@@ -35,6 +48,11 @@ export class GameBootstrap extends Component {
 
     if (this.activeScreen === 'game') {
       this.boardView?.tick(this.getSafeDeltaTime(deltaTime));
+      this.gameBackgroundTime += this.getSafeDeltaTime(deltaTime);
+      this.updateGameBackgroundPosition();
+    } else {
+      this.menuBackgroundTime += this.getSafeDeltaTime(deltaTime);
+      this.updateMenuBackgroundPosition();
     }
   }
 
@@ -47,6 +65,14 @@ export class GameBootstrap extends Component {
     this.boardView = null;
     this.gameSession = null;
     this.currentDifficulty = null;
+    this.menuBackgroundNode = null;
+    this.menuBackgroundTransform = null;
+    this.menuBackgroundSprite = null;
+    this.gameBackgroundNode = null;
+    this.gameBackgroundTransform = null;
+    this.gameBackgroundSprite = null;
+    this.backgroundOverlayNode = null;
+    this.backgroundOverlayGraphics = null;
   }
 
   private buildRootUi(): void {
@@ -71,6 +97,7 @@ export class GameBootstrap extends Component {
     this.activeScreen = 'menu';
     this.menuContainer.active = true;
     this.gameContainer.active = false;
+    this.updateMenuBackgroundVisibility();
     this.menuController.setup(DIFFICULTIES, (difficulty) => this.startMode(difficulty));
   }
 
@@ -93,6 +120,7 @@ export class GameBootstrap extends Component {
     this.activeScreen = 'game';
     this.menuContainer.active = false;
     this.gameContainer.active = true;
+    this.updateMenuBackgroundVisibility();
     this.boardView.setup(this.gameSession, () => this.showMainMenu(), () => this.restartCurrentMode());
   }
 
@@ -169,9 +197,10 @@ export class GameBootstrap extends Component {
     const rootSize = this.getRootSize();
 
     transform.setContentSize(rootSize.width, rootSize.height);
-    graphics.fillColor = new Color(18, 54, 45, 255);
-    graphics.rect(-rootSize.width / 2, -rootSize.height / 2, rootSize.width, rootSize.height);
-    graphics.fill();
+    this.drawBackground(graphics, rootSize.width, rootSize.height);
+    this.createMenuBackgroundImage(background, rootSize.width, rootSize.height);
+    this.createGameBackgroundImage(background, rootSize.width, rootSize.height);
+    this.createBackgroundOverlay(background, rootSize.width, rootSize.height);
 
     this.gameRoot.addChild(background);
   }
@@ -187,9 +216,177 @@ export class GameBootstrap extends Component {
 
     transform.setContentSize(width, height);
     graphics.clear();
-    graphics.fillColor = new Color(18, 54, 45, 255);
+    this.drawBackground(graphics, width, height);
+    this.resizeMenuBackground(width, height);
+    this.resizeGameBackground(width, height);
+    this.resizeBackgroundOverlay(width, height);
+  }
+
+  private drawBackground(graphics: Graphics, width: number, height: number): void {
+    graphics.fillColor = new Color(13, 54, 43, 255);
     graphics.rect(-width / 2, -height / 2, width, height);
     graphics.fill();
+
+    graphics.fillColor = new Color(8, 36, 31, 84);
+    graphics.rect(-width / 2, -height / 2, width, height * 0.18);
+    graphics.fill();
+    graphics.rect(-width / 2, height / 2 - height * 0.16, width, height * 0.16);
+    graphics.fill();
+
+    graphics.strokeColor = new Color(29, 84, 65, 92);
+    graphics.lineWidth = Math.max(2, Math.floor(Math.min(width, height) * 0.004));
+    graphics.rect(-width / 2 + 18, -height / 2 + 18, width - 36, height - 36);
+    graphics.stroke();
+  }
+
+  private createMenuBackgroundImage(parent: Node, width: number, height: number): void {
+    const imageNode = new Node('MenuLandscapeBackground');
+    const transform = imageNode.addComponent(UITransform);
+    const sprite = imageNode.addComponent(Sprite);
+
+    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+    imageNode.setSiblingIndex(0);
+    parent.addChild(imageNode);
+
+    this.menuBackgroundNode = imageNode;
+    this.menuBackgroundTransform = transform;
+    this.menuBackgroundSprite = sprite;
+    this.resizeMenuBackground(width, height);
+    this.updateMenuBackgroundVisibility();
+
+    resources.load(MENU_BACKGROUND_PATH, SpriteFrame, (error, spriteFrame) => {
+      if (error || !spriteFrame || !this.menuBackgroundSprite?.isValid) {
+        console.warn(`[GameBootstrap] Menu background image is unavailable: resources/${MENU_BACKGROUND_PATH}.`);
+        return;
+      }
+
+      this.menuBackgroundSprite.spriteFrame = spriteFrame;
+      this.menuBackgroundSprite.sizeMode = Sprite.SizeMode.CUSTOM;
+      this.resizeMenuBackground(this.lastRootWidth, this.lastRootHeight);
+    });
+  }
+
+  private createGameBackgroundImage(parent: Node, width: number, height: number): void {
+    const imageNode = new Node('GameLandscapeBackground');
+    const transform = imageNode.addComponent(UITransform);
+    const sprite = imageNode.addComponent(Sprite);
+
+    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+    parent.addChild(imageNode);
+
+    this.gameBackgroundNode = imageNode;
+    this.gameBackgroundTransform = transform;
+    this.gameBackgroundSprite = sprite;
+    this.resizeGameBackground(width, height);
+    this.updateMenuBackgroundVisibility();
+
+    resources.load(GAME_BACKGROUND_PATH, SpriteFrame, (error, spriteFrame) => {
+      if (error || !spriteFrame || !this.gameBackgroundSprite?.isValid) {
+        console.warn(`[GameBootstrap] Game background image is unavailable: resources/${GAME_BACKGROUND_PATH}.`);
+        return;
+      }
+
+      this.gameBackgroundSprite.spriteFrame = spriteFrame;
+      this.gameBackgroundSprite.sizeMode = Sprite.SizeMode.CUSTOM;
+      this.resizeGameBackground(this.lastRootWidth, this.lastRootHeight);
+    });
+  }
+
+  private createBackgroundOverlay(parent: Node, width: number, height: number): void {
+    const overlayNode = new Node('BackgroundReadabilityOverlay');
+    const transform = overlayNode.addComponent(UITransform);
+    const graphics = overlayNode.addComponent(Graphics);
+
+    transform.setContentSize(width, height);
+    parent.addChild(overlayNode);
+    this.backgroundOverlayNode = overlayNode;
+    this.backgroundOverlayGraphics = graphics;
+    this.drawBackgroundOverlay(graphics, width, height);
+  }
+
+  private resizeMenuBackground(width: number, height: number): void {
+    if (!this.menuBackgroundNode || !this.menuBackgroundTransform) {
+      return;
+    }
+
+    const coverByWidthHeight = width / MENU_BACKGROUND_ASPECT_RATIO;
+    const coverByHeightWidth = height * MENU_BACKGROUND_ASPECT_RATIO;
+    const imageWidth = Math.max(width, coverByHeightWidth) * 1.08;
+    const imageHeight = Math.max(height, coverByWidthHeight) * 1.08;
+
+    this.menuBackgroundTransform.setContentSize(imageWidth, imageHeight);
+    this.updateMenuBackgroundPosition();
+  }
+
+  private resizeGameBackground(width: number, height: number): void {
+    if (!this.gameBackgroundNode || !this.gameBackgroundTransform) {
+      return;
+    }
+
+    const coverByWidthHeight = width / MENU_BACKGROUND_ASPECT_RATIO;
+    const coverByHeightWidth = height * MENU_BACKGROUND_ASPECT_RATIO;
+    const imageWidth = Math.max(width, coverByHeightWidth) * 1.05;
+    const imageHeight = Math.max(height, coverByWidthHeight) * 1.05;
+
+    this.gameBackgroundTransform.setContentSize(imageWidth, imageHeight);
+    this.updateGameBackgroundPosition();
+  }
+
+  private resizeBackgroundOverlay(width: number, height: number): void {
+    const transform = this.backgroundOverlayNode?.getComponent(UITransform);
+
+    if (!transform || !this.backgroundOverlayGraphics) {
+      return;
+    }
+
+    transform.setContentSize(width, height);
+    this.drawBackgroundOverlay(this.backgroundOverlayGraphics, width, height);
+  }
+
+  private drawBackgroundOverlay(graphics: Graphics, width: number, height: number): void {
+    graphics.clear();
+
+    graphics.fillColor = new Color(2, 20, 17, 88);
+    graphics.rect(-width / 2, -height / 2, width, height);
+    graphics.fill();
+
+    graphics.fillColor = new Color(4, 24, 20, 92);
+    graphics.rect(-width / 2, height / 2 - height * 0.22, width, height * 0.22);
+    graphics.fill();
+
+    graphics.fillColor = new Color(4, 20, 17, 104);
+    graphics.rect(-width / 2, -height / 2, width, height * 0.16);
+    graphics.fill();
+  }
+
+  private updateMenuBackgroundVisibility(): void {
+    if (this.menuBackgroundNode?.isValid) {
+      this.menuBackgroundNode.active = this.activeScreen === 'menu';
+    }
+
+    if (this.gameBackgroundNode?.isValid) {
+      this.gameBackgroundNode.active = this.activeScreen === 'game';
+    }
+  }
+
+  private updateMenuBackgroundPosition(): void {
+    if (!this.menuBackgroundNode || !this.menuBackgroundTransform) {
+      return;
+    }
+
+    const driftRange = Math.min(34, this.menuBackgroundTransform.contentSize.height * 0.018);
+    const y = Math.sin(this.menuBackgroundTime * 0.18) * driftRange;
+    this.menuBackgroundNode.setPosition(0, y, 0);
+  }
+
+  private updateGameBackgroundPosition(): void {
+    if (!this.gameBackgroundNode || !this.gameBackgroundTransform) {
+      return;
+    }
+
+    const driftRange = Math.min(18, this.gameBackgroundTransform.contentSize.height * 0.008);
+    const y = Math.sin(this.gameBackgroundTime * 0.12) * driftRange;
+    this.gameBackgroundNode.setPosition(0, y, 0);
   }
 
   private setNodeSize(node: Node | null, width: number, height: number): void {

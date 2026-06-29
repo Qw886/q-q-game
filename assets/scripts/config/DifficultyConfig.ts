@@ -15,7 +15,7 @@ export const DIFFICULTIES: readonly DifficultyConfig[] = [
     rows: 12,
     columns: 10,
     tileCount: 120,
-    roundTime: 14,
+    roundTime: 20,
   },
   {
     id: 'hard',
@@ -23,7 +23,7 @@ export const DIFFICULTIES: readonly DifficultyConfig[] = [
     rows: 16,
     columns: 12,
     tileCount: 192,
-    roundTime: 9,
+    roundTime: 20,
   },
 ];
 

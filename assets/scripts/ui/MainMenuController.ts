@@ -17,7 +17,7 @@ export class MainMenuController extends Component {
     }
 
     const rootSize = this.getRootSize();
-    const layout = this.getMenuLayout(rootSize.height);
+    const layout = this.getMenuLayout(rootSize.width, rootSize.height);
     this.createTitle(layout);
     this.createModeButtons(difficulties, layout);
     this.createRuleHint(layout);
@@ -29,11 +29,25 @@ export class MainMenuController extends Component {
   }
 
   private createTitle(layout: MenuLayout): void {
+    const titleShadowNode = new Node('TitleShadow');
+    const shadowTransform = titleShadowNode.addComponent(UITransform);
+    const shadowLabel = titleShadowNode.addComponent(Label);
+
+    shadowTransform.setContentSize(layout.titleWidth, layout.titleHeight);
+    titleShadowNode.setPosition(2, layout.titleY - 3, 0);
+    shadowLabel.string = 'Qwq\u8fde\u7ebf';
+    shadowLabel.fontSize = layout.titleFontSize;
+    shadowLabel.lineHeight = layout.titleLineHeight;
+    shadowLabel.color = new Color(0, 0, 0, 96);
+    shadowLabel.horizontalAlign = Label.HorizontalAlign.CENTER;
+    shadowLabel.verticalAlign = Label.VerticalAlign.CENTER;
+    this.node.addChild(titleShadowNode);
+
     const titleNode = new Node('Title');
     const transform = titleNode.addComponent(UITransform);
     const label = titleNode.addComponent(Label);
 
-    transform.setContentSize(560, layout.titleHeight);
+    transform.setContentSize(layout.titleWidth, layout.titleHeight);
     titleNode.setPosition(0, layout.titleY, 0);
     label.string = 'Qwq\u8fde\u7ebf';
     label.fontSize = layout.titleFontSize;
@@ -48,7 +62,7 @@ export class MainMenuController extends Component {
     const subtitleTransform = subtitleNode.addComponent(UITransform);
     const subtitle = subtitleNode.addComponent(Label);
 
-    subtitleTransform.setContentSize(600, layout.subtitleHeight);
+    subtitleTransform.setContentSize(layout.subtitleWidth, layout.subtitleHeight);
     subtitleNode.setPosition(0, layout.subtitleY, 0);
     subtitle.string = '\u6700\u591a\u4e24\u6b21\u8f6c\u5f2f\uff0c\u8fde\u63a5\u76f8\u540c\u96c0\u724c';
     subtitle.fontSize = layout.subtitleFontSize;
@@ -94,12 +108,12 @@ export class MainMenuController extends Component {
     const transform = hintNode.addComponent(UITransform);
     const label = hintNode.addComponent(Label);
 
-    transform.setContentSize(620, layout.hintHeight);
+    transform.setContentSize(layout.hintWidth, layout.hintHeight);
     hintNode.setPosition(0, layout.hintY, 0);
     label.string = '\u9009\u62e9\u4e24\u5f20\u76f8\u540c\u96c0\u724c\n\u8fde\u7ebf\u8def\u5f84\u6700\u591a\u8f6c\u5f2f\u4e24\u6b21';
     label.fontSize = layout.hintFontSize;
     label.lineHeight = layout.hintLineHeight;
-    label.color = new Color(230, 245, 210, 255);
+    label.color = new Color(225, 239, 211, 255);
     label.horizontalAlign = Label.HorizontalAlign.CENTER;
     label.verticalAlign = Label.VerticalAlign.CENTER;
 
@@ -219,8 +233,8 @@ export class MainMenuController extends Component {
         : new Color(242, 229, 191, 255);
 
     graphics.clear();
-    graphics.fillColor = new Color(0, 0, 0, state === 'pressed' ? 38 : 56);
-    graphics.roundRect(-width / 2 + 5, -height / 2 - 5, width, height, 10);
+    graphics.fillColor = new Color(0, 0, 0, state === 'pressed' ? 36 : 58);
+    graphics.roundRect(-width / 2 + 5, -height / 2 - 6, width, height, 10);
     graphics.fill();
     graphics.fillColor = fillColor;
     graphics.strokeColor = accentColor;
@@ -228,8 +242,11 @@ export class MainMenuController extends Component {
     graphics.roundRect(-width / 2, -height / 2 + offsetY, width, height, 10);
     graphics.fill();
     graphics.stroke();
-    graphics.fillColor = new Color(accentColor.r, accentColor.g, accentColor.b, 34);
-    graphics.rect(-width / 2 + 12, height / 2 - 12 + offsetY, width - 24, 6);
+    graphics.fillColor = new Color(255, 255, 246, 72);
+    graphics.roundRect(-width / 2 + 20, height / 2 - 13 + offsetY, width - 40, 5, 3);
+    graphics.fill();
+    graphics.fillColor = new Color(accentColor.r, accentColor.g, accentColor.b, 22);
+    graphics.roundRect(-width / 2 + 22, -height / 2 + 10 + offsetY, width - 44, 4, 2);
     graphics.fill();
   }
 
@@ -253,67 +270,84 @@ export class MainMenuController extends Component {
     return { width, height };
   }
 
-  private getMenuLayout(height: number): MenuLayout {
+  private getMenuLayout(width: number, height: number): MenuLayout {
+    const widthScale = this.clamp(width / 720, 0.82, 1);
+
     if (height < 900) {
-      const firstButtonY = Math.min(44, height / 2 - 315);
-      const buttonGap = 92;
-      const buttonHeight = 84;
+      const buttonHeight = this.clamp(height * 0.11, 72, 86);
+      const buttonGap = buttonHeight + this.clamp(height * 0.018, 14, 20);
+      const firstButtonY = Math.min(48, height / 2 - 325);
       const hardButtonCenterY = firstButtonY - buttonGap * 2;
 
       return {
-        titleY: height / 2 - 150,
+        titleY: height / 2 - 164,
+        titleWidth: 560,
         titleHeight: 58,
-        titleFontSize: 46,
-        titleLineHeight: 54,
-        subtitleY: height / 2 - 205,
+        titleFontSize: Math.floor(43 * widthScale),
+        titleLineHeight: Math.floor(53 * widthScale),
+        subtitleY: height / 2 - 214,
+        subtitleWidth: 620,
         subtitleHeight: 34,
-        subtitleFontSize: 19,
-        subtitleLineHeight: 26,
+        subtitleFontSize: Math.floor(17 * widthScale),
+        subtitleLineHeight: Math.floor(25 * widthScale),
         firstButtonY,
         buttonGap,
-        buttonWidth: 420,
+        buttonWidth: this.clamp(width * 0.52, 360, 430),
         buttonHeight,
         buttonTitleY: 16,
         buttonTitleHeight: 36,
-        buttonTitleFontSize: 23,
-        buttonTitleLineHeight: 30,
+        buttonTitleFontSize: Math.floor(24 * widthScale),
+        buttonTitleLineHeight: Math.floor(30 * widthScale),
         buttonDetailY: -21,
         buttonDetailHeight: 28,
-        buttonDetailFontSize: 15,
-        buttonDetailLineHeight: 22,
-        hintY: Math.max(-height / 2 + 52, hardButtonCenterY - buttonHeight / 2 - 44),
+        buttonDetailFontSize: Math.floor(16 * widthScale),
+        buttonDetailLineHeight: Math.floor(22 * widthScale),
+        hintY: Math.max(-height / 2 + 54, hardButtonCenterY - buttonHeight / 2 - 46),
+        hintWidth: 620,
         hintHeight: 48,
-        hintFontSize: 15,
-        hintLineHeight: 22,
+        hintFontSize: Math.floor(15 * widthScale),
+        hintLineHeight: Math.floor(21 * widthScale),
       };
     }
 
+    const buttonHeight = this.clamp(height * 0.078, 88, 104);
+    const buttonGap = buttonHeight + this.clamp(height * 0.018, 22, 30);
+    const firstButtonY = height / 2 - 448;
+    const hardButtonCenterY = firstButtonY - buttonGap * 2;
+
     return {
-      titleY: height / 2 - 138,
-      titleHeight: 74,
-      titleFontSize: 58,
-      titleLineHeight: 66,
-      subtitleY: height / 2 - 197,
+      titleY: height / 2 - 205,
+      titleWidth: 620,
+      titleHeight: 76,
+      titleFontSize: Math.floor(54 * widthScale),
+      titleLineHeight: Math.floor(64 * widthScale),
+      subtitleY: height / 2 - 264,
+      subtitleWidth: 660,
       subtitleHeight: 42,
-      subtitleFontSize: 23,
-      subtitleLineHeight: 30,
-      firstButtonY: Math.min(120, height / 2 - 360),
-      buttonGap: 130,
-      buttonWidth: 486,
-      buttonHeight: 106,
-      buttonTitleY: 20,
+      subtitleFontSize: Math.floor(21 * widthScale),
+      subtitleLineHeight: Math.floor(29 * widthScale),
+      firstButtonY,
+      buttonGap,
+      buttonWidth: this.clamp(width * 0.58, 430, 520),
+      buttonHeight,
+      buttonTitleY: 18,
       buttonTitleHeight: 44,
-      buttonTitleFontSize: 28,
-      buttonTitleLineHeight: 34,
+      buttonTitleFontSize: Math.floor(29 * widthScale),
+      buttonTitleLineHeight: Math.floor(34 * widthScale),
       buttonDetailY: -24,
       buttonDetailHeight: 36,
-      buttonDetailFontSize: 19,
-      buttonDetailLineHeight: 26,
-      hintY: Math.max(-height / 2 + 138, -288),
+      buttonDetailFontSize: Math.floor(19 * widthScale),
+      buttonDetailLineHeight: Math.floor(25 * widthScale),
+      hintY: Math.max(-height / 2 + 96, hardButtonCenterY - buttonHeight / 2 - 54),
+      hintWidth: 660,
       hintHeight: 72,
-      hintFontSize: 18,
-      hintLineHeight: 26,
+      hintFontSize: Math.floor(18 * widthScale),
+      hintLineHeight: Math.floor(25 * widthScale),
     };
+  }
+
+  private clamp(value: number, min: number, max: number): number {
+    return Math.max(min, Math.min(value, max));
   }
 }
 
@@ -332,10 +366,12 @@ type ModeButtonState = 'default' | 'hover' | 'pressed';
 
 interface MenuLayout {
   readonly titleY: number;
+  readonly titleWidth: number;
   readonly titleHeight: number;
   readonly titleFontSize: number;
   readonly titleLineHeight: number;
   readonly subtitleY: number;
+  readonly subtitleWidth: number;
   readonly subtitleHeight: number;
   readonly subtitleFontSize: number;
   readonly subtitleLineHeight: number;
@@ -352,6 +388,7 @@ interface MenuLayout {
   readonly buttonDetailFontSize: number;
   readonly buttonDetailLineHeight: number;
   readonly hintY: number;
+  readonly hintWidth: number;
   readonly hintHeight: number;
   readonly hintFontSize: number;
   readonly hintLineHeight: number;
