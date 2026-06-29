@@ -1,7 +1,9 @@
-import { _decorator, Color, Component, Graphics, Label, Node, UITransform } from 'cc';
+import { _decorator, Color, Component, Graphics, Label, Node, resources, Sprite, SpriteFrame, tween, Tween, UIOpacity, UITransform, Vec3 } from 'cc';
 import type { GameEndReason, GameSnapshot } from '../core/GameTypes';
 
 const { ccclass } = _decorator;
+const HARD_WIN_BACKGROUND_PATH = 'endings/hard_win_sky/spriteFrame';
+const HARD_WIN_TEXT = '\u83ab\u9053\u6851\u6986\u665a\u4e3a\u971e\u5c1a\u6ee1\u5929';
 
 @ccclass('ResultDialogController')
 export class ResultDialogController extends Component {
@@ -9,6 +11,7 @@ export class ResultDialogController extends Component {
   private menuButton: Node | null = null;
   private onRestart: (() => void) | null = null;
   private onMenu: (() => void) | null = null;
+  private readonly animatedNodes: Node[] = [];
 
   public show(
     _snapshot: GameSnapshot,
@@ -22,6 +25,11 @@ export class ResultDialogController extends Component {
     this.onRestart = onRestart;
     this.onMenu = onMenu;
     this.node.active = true;
+
+    if (reason === 'win' && _snapshot.modeId === 'hard') {
+      this.showHardWinEasterEgg(onRestart, onMenu, width, height);
+      return;
+    }
 
     const transform = this.node.getComponent(UITransform) ?? this.node.addComponent(UITransform);
     const graphics = this.node.getComponent(Graphics) ?? this.node.addComponent(Graphics);
@@ -56,12 +64,13 @@ export class ResultDialogController extends Component {
   }
 
   protected onDestroy(): void {
-    this.clearButtonEvents();
+    this.clear();
     this.onRestart = null;
     this.onMenu = null;
   }
 
   private clear(): void {
+    this.stopAnimations();
     this.clearButtonEvents();
     this.onRestart = null;
     this.onMenu = null;
@@ -97,6 +106,136 @@ export class ResultDialogController extends Component {
       child.removeFromParent();
       child.destroy();
     }
+  }
+
+  private stopAnimations(): void {
+    for (const node of this.animatedNodes) {
+      if (node.isValid) {
+        Tween.stopAllByTarget(node);
+        const opacity = node.getComponent(UIOpacity);
+
+        if (opacity) {
+          Tween.stopAllByTarget(opacity);
+        }
+      }
+    }
+
+    this.animatedNodes.length = 0;
+  }
+
+  private showHardWinEasterEgg(onRestart: () => void, onMenu: () => void, width: number, height: number): void {
+    this.onRestart = onRestart;
+    this.onMenu = onMenu;
+
+    const transform = this.node.getComponent(UITransform) ?? this.node.addComponent(UITransform);
+    const graphics = this.node.getComponent(Graphics) ?? this.node.addComponent(Graphics);
+    transform.setContentSize(width, height);
+    graphics.clear();
+    graphics.fillColor = new Color(0, 0, 0, 255);
+    graphics.rect(-width / 2, -height / 2, width, height);
+    graphics.fill();
+
+    const backgroundNode = this.createHardWinBackground(width, height);
+    this.node.addChild(backgroundNode);
+    this.animateHardWinBackground(backgroundNode);
+
+    const overlay = new Node('HardWinReadabilityOverlay');
+    const overlayTransform = overlay.addComponent(UITransform);
+    const overlayGraphics = overlay.addComponent(Graphics);
+    overlayTransform.setContentSize(width, height);
+    overlayGraphics.fillColor = new Color(0, 24, 44, 70);
+    overlayGraphics.rect(-width / 2, -height / 2, width, height);
+    overlayGraphics.fill();
+    this.node.addChild(overlay);
+
+    this.createHardWinPoem(width, height);
+
+    const buttonY = -height / 2 + Math.max(62, height * 0.105);
+    this.restartButton = this.createButton('\u518d\u6311\u6218', 170, 52);
+    this.restartButton.setPosition(-92, buttonY, 0);
+    this.restartButton.on(Node.EventType.TOUCH_END, this.handleRestart, this);
+    this.node.addChild(this.restartButton);
+
+    this.menuButton = this.createButton('\u8fd4\u56de\u83dc\u5355', 170, 52);
+    this.menuButton.setPosition(92, buttonY, 0);
+    this.menuButton.on(Node.EventType.TOUCH_END, this.handleMenu, this);
+    this.node.addChild(this.menuButton);
+  }
+
+  private createHardWinBackground(width: number, height: number): Node {
+    const backgroundNode = new Node('HardWinSkyBackground');
+    const transform = backgroundNode.addComponent(UITransform);
+    const sprite = backgroundNode.addComponent(Sprite);
+    const imageAspectRatio = 1448 / 1086;
+    const targetAspectRatio = width / height;
+    const displayHeight = targetAspectRatio > imageAspectRatio ? width / imageAspectRatio : height;
+    const displayWidth = targetAspectRatio > imageAspectRatio ? width : height * imageAspectRatio;
+
+    transform.setContentSize(displayWidth * 1.08, displayHeight * 1.08);
+    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+    resources.load(HARD_WIN_BACKGROUND_PATH, SpriteFrame, (error, spriteFrame) => {
+      if (error || !spriteFrame || !backgroundNode.isValid) {
+        console.warn(`[ResultDialogController] Hard win background is unavailable: resources/${HARD_WIN_BACKGROUND_PATH}.`);
+        return;
+      }
+
+      sprite.spriteFrame = spriteFrame;
+      sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+      transform.setContentSize(displayWidth * 1.08, displayHeight * 1.08);
+    });
+
+    return backgroundNode;
+  }
+
+  private animateHardWinBackground(backgroundNode: Node): void {
+    this.animatedNodes.push(backgroundNode);
+    backgroundNode.setPosition(-10, -4, 0);
+    backgroundNode.setScale(new Vec3(1.02, 1.02, 1));
+    tween(backgroundNode)
+      .repeatForever(
+        tween<Node>()
+          .to(5.2, { position: new Vec3(10, 5, 0), scale: new Vec3(1.045, 1.045, 1) }, { easing: 'sineInOut' })
+          .to(5.2, { position: new Vec3(-10, -4, 0), scale: new Vec3(1.02, 1.02, 1) }, { easing: 'sineInOut' }),
+      )
+      .start();
+  }
+
+  private createHardWinPoem(width: number, height: number): void {
+    const poemRoot = new Node('HardWinPoem');
+    const rootTransform = poemRoot.addComponent(UITransform);
+    rootTransform.setContentSize(width, 160);
+    poemRoot.setPosition(0, height * 0.12, 0);
+    this.node.addChild(poemRoot);
+
+    const chars = [...HARD_WIN_TEXT];
+    const fontSize = Math.floor(Math.min(42, Math.max(26, width / 18)));
+    const charGap = fontSize * 0.1;
+    const step = fontSize + charGap;
+    const startX = -((chars.length - 1) * step) / 2;
+
+    chars.forEach((char, index) => {
+      const charNode = new Node(`PoemChar_${index}`);
+      const transform = charNode.addComponent(UITransform);
+      const opacity = charNode.addComponent(UIOpacity);
+      const label = charNode.addComponent(Label);
+      transform.setContentSize(fontSize + 8, fontSize + 18);
+      charNode.setPosition(startX + index * step, 0, 0);
+      opacity.opacity = 0;
+      label.string = char;
+      label.fontSize = fontSize;
+      label.lineHeight = fontSize + 10;
+      label.color = new Color(255, 255, 255, 255);
+      label.horizontalAlign = Label.HorizontalAlign.CENTER;
+      label.verticalAlign = Label.VerticalAlign.CENTER;
+      poemRoot.addChild(charNode);
+      this.animatedNodes.push(charNode);
+      this.animatedNodes.push(opacity.node);
+
+      tween(opacity)
+        .delay(index * 0.055)
+        .to(0.18, { opacity: 255 }, { easing: 'quadOut' })
+        .start();
+    });
   }
 
   private createPanel(width: number, height: number): Node {

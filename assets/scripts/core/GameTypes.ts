@@ -40,6 +40,7 @@ export interface PathResult {
 export type GameEndReason = 'win' | 'timeout' | 'deadlock';
 
 export interface GameSnapshot {
+  readonly modeId: DifficultyId;
   readonly modeName: string;
   readonly initialSeconds: number;
   readonly remainingTiles: number;

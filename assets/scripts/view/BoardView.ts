@@ -1,4 +1,4 @@
-import { _decorator, Color, Component, Graphics, Label, Node, tween, Tween, UITransform, Vec3 } from 'cc';
+import { _decorator, AudioClip, AudioSource, Color, Component, Graphics, Label, Node, resources, UITransform, Vec3 } from 'cc';
 import { GameSession } from '../core/GameSession';
 import { GameEndReason, GridPoint, TileClickResult, TileData } from '../core/GameTypes';
 import { HudController } from '../ui/HudController';
@@ -7,16 +7,14 @@ import { BoardGridMetrics, LinkLineView } from './LinkLineView';
 import { TileView } from './TileView';
 
 const { ccclass } = _decorator;
+const MATCH_SUCCESS_AUDIO_PATH = 'audio/match_success';
+const MATCH_FAILURE_AUDIO_PATH = 'audio/match_failure';
 
 interface BoardTileBinding {
   readonly node: Node;
   readonly view: TileView;
   readonly point: GridPoint;
   readonly onClick: () => void;
-}
-
-interface VibrationNavigator {
-  vibrate?: (pattern: number | number[]) => boolean;
 }
 
 export interface BoardViewDiagnostics {
@@ -49,12 +47,19 @@ export class BoardView extends Component {
   private lineClearScheduled = false;
   private finishRemovalScheduled = false;
   private connectionAnimationId = 0;
+  private audioNode: Node | null = null;
+  private audioSource: AudioSource | null = null;
+  private matchSuccessClip: AudioClip | null = null;
+  private matchFailureClip: AudioClip | null = null;
+  private matchSuccessAudioLoadStarted = false;
+  private matchFailureAudioLoadStarted = false;
 
   public setup(session: GameSession, onBack: () => void, onRestart: () => void): void {
     this.stopGame();
     this.session = session;
     this.onBack = onBack;
     this.onRestart = onRestart;
+    this.ensureAudioFeedbackLoaded();
 
     this.createLayout();
     this.updateHud();
@@ -240,6 +245,7 @@ export class BoardView extends Component {
   }
 
   private showFailureFeedback(first: GridPoint, second: GridPoint): void {
+    this.playFailureSoundFeedback();
     this.getTileView(first)?.showFailure();
     this.getTileView(second)?.showFailure();
     this.failureFeedbackScheduled = true;
@@ -267,7 +273,7 @@ export class BoardView extends Component {
       }
 
       this.lineClearScheduled = false;
-      this.playSuccessImpactFeedback();
+      this.playSuccessSoundFeedback();
       this.getTileView(result.first)?.playRemoveAnimation();
       this.getTileView(result.second)?.playRemoveAnimation();
       this.scheduleOnce(() => {
@@ -356,7 +362,6 @@ export class BoardView extends Component {
     this.finishRemovalScheduled = false;
     this.connectionAnimationId += 1;
     this.session?.cancelPendingAction();
-    this.stopBoardImpactAnimation();
     this.stopTileAnimations();
     this.clearTileEvents();
     this.clearBackButtonEvent();
@@ -393,47 +398,84 @@ export class BoardView extends Component {
     }
   }
 
-  private playSuccessImpactFeedback(): void {
-    this.triggerDeviceVibration();
-    this.playBoardImpactShake();
+  private ensureAudioFeedbackLoaded(): void {
+    if (!this.audioSource) {
+      this.audioNode = new Node('BoardAudio');
+      this.audioSource = this.audioNode.addComponent(AudioSource);
+      this.audioSource.volume = 1;
+      this.node.addChild(this.audioNode);
+    }
+
+    if (this.matchSuccessClip) {
+      this.audioSource.clip = this.matchSuccessClip;
+    }
+
+    this.loadAudioClip(
+      MATCH_SUCCESS_AUDIO_PATH,
+      this.matchSuccessAudioLoadStarted,
+      (started) => {
+        this.matchSuccessAudioLoadStarted = started;
+      },
+      (clip) => {
+        this.matchSuccessClip = clip;
+        if (this.audioSource) {
+          this.audioSource.clip = clip;
+        }
+      },
+      'success',
+    );
+    this.loadAudioClip(
+      MATCH_FAILURE_AUDIO_PATH,
+      this.matchFailureAudioLoadStarted,
+      (started) => {
+        this.matchFailureAudioLoadStarted = started;
+      },
+      (clip) => {
+        this.matchFailureClip = clip;
+      },
+      'failure',
+    );
   }
 
-  private triggerDeviceVibration(): void {
-    const globalWithNavigator = globalThis as typeof globalThis & { navigator?: VibrationNavigator };
-    const navigator = globalWithNavigator.navigator;
-
-    if (typeof navigator?.vibrate !== 'function') {
+  private loadAudioClip(
+    path: string,
+    loadStarted: boolean,
+    setLoadStarted: (started: boolean) => void,
+    setClip: (clip: AudioClip) => void,
+    label: string,
+  ): void {
+    if (loadStarted) {
       return;
     }
 
-    try {
-      navigator.vibrate(35);
-    } catch {
-      // 部分桌面预览环境暴露了 vibrate 方法但不允许调用，忽略即可。
-    }
+    setLoadStarted(true);
+    resources.load(path, AudioClip, (error, clip) => {
+      if (error || !clip || !this.node.isValid) {
+        setLoadStarted(false);
+        console.warn(`[BoardView] Match ${label} audio is unavailable: resources/${path}.`);
+        return;
+      }
+
+      setClip(clip);
+    });
   }
 
-  private playBoardImpactShake(): void {
-    if (!this.boardNode?.isValid) {
+  private playSuccessSoundFeedback(): void {
+    if (!this.audioSource || !this.matchSuccessClip) {
+      this.ensureAudioFeedbackLoaded();
       return;
     }
 
-    this.stopBoardImpactAnimation();
-    this.boardNode.setPosition(Vec3.ZERO);
-    tween(this.boardNode)
-      .to(0.035, { position: new Vec3(3, 0, 0) })
-      .to(0.035, { position: new Vec3(-3, 0, 0) })
-      .to(0.04, { position: Vec3.ZERO })
-      .start();
+    this.audioSource.playOneShot(this.matchSuccessClip, 1);
   }
 
-  private stopBoardImpactAnimation(): void {
-    if (!this.boardNode?.isValid) {
+  private playFailureSoundFeedback(): void {
+    if (!this.audioSource || !this.matchFailureClip) {
+      this.ensureAudioFeedbackLoaded();
       return;
     }
 
-    Tween.stopAllByTarget(this.boardNode);
-    this.boardNode.setPosition(Vec3.ZERO);
+    this.audioSource.playOneShot(this.matchFailureClip, 0.72);
   }
 
   private clearBackButtonEvent(): void {
@@ -471,6 +513,8 @@ export class BoardView extends Component {
     this.hudController = null;
     this.resultDialog = null;
     this.backButtonNode = null;
+    this.audioNode = null;
+    this.audioSource = null;
     this.session = null;
     this.onBack = null;
     this.onRestart = null;

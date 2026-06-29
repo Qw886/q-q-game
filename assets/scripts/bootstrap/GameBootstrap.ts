@@ -9,6 +9,7 @@ const { ccclass } = _decorator;
 const MENU_BACKGROUND_PATH = 'backgrounds/menu_landscape/spriteFrame';
 const GAME_BACKGROUND_PATH = 'backgrounds/game_landscape/spriteFrame';
 const MENU_BACKGROUND_ASPECT_RATIO = 9 / 16;
+const GAME_BACKGROUND_ASPECT_RATIO = 1280 / 1707;
 
 @ccclass('GameBootstrap')
 export class GameBootstrap extends Component {
@@ -309,8 +310,8 @@ export class GameBootstrap extends Component {
       return;
     }
 
-    const coverByWidthHeight = width / MENU_BACKGROUND_ASPECT_RATIO;
-    const coverByHeightWidth = height * MENU_BACKGROUND_ASPECT_RATIO;
+    const coverByWidthHeight = width / GAME_BACKGROUND_ASPECT_RATIO;
+    const coverByHeightWidth = height * GAME_BACKGROUND_ASPECT_RATIO;
     const imageWidth = Math.max(width, coverByHeightWidth) * 1.08;
     const imageHeight = Math.max(height, coverByWidthHeight) * 1.08;
 

@@ -310,9 +310,9 @@ export class MainMenuController extends Component {
       };
     }
 
-    const buttonHeight = this.clamp(height * 0.078, 88, 104);
+    const buttonHeight = this.clamp(height * 0.074, 86, 96);
     const buttonGap = buttonHeight + this.clamp(height * 0.018, 22, 30);
-    const firstButtonY = height / 2 - 448;
+    const firstButtonY = height / 2 - 530;
     const hardButtonCenterY = firstButtonY - buttonGap * 2;
 
     return {
@@ -328,7 +328,7 @@ export class MainMenuController extends Component {
       subtitleLineHeight: Math.floor(29 * widthScale),
       firstButtonY,
       buttonGap,
-      buttonWidth: this.clamp(width * 0.58, 430, 520),
+      buttonWidth: this.clamp(width * 0.54, 410, 490),
       buttonHeight,
       buttonTitleY: 18,
       buttonTitleHeight: 44,

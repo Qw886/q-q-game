@@ -53,6 +53,7 @@ export class GameSession {
 
   public getSnapshot(): GameSnapshot {
     return {
+      modeId: this.config.id,
       modeName: this.config.name,
       initialSeconds: this.config.roundTime,
       remainingTiles: this.remainingTileCount,
