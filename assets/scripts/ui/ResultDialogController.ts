@@ -167,9 +167,7 @@ export class ResultDialogController extends Component {
     const fallbackTransform = fallbackNode.addComponent(UITransform);
     const fallbackGraphics = fallbackNode.addComponent(Graphics);
     fallbackTransform.setContentSize(displayWidth * 1.08, displayHeight * 1.08);
-    fallbackGraphics.fillColor = new Color(88, 151, 211, 255);
-    fallbackGraphics.rect(-displayWidth * 0.54, -displayHeight * 0.54, displayWidth * 1.08, displayHeight * 1.08);
-    fallbackGraphics.fill();
+    this.drawHardWinFallbackSky(fallbackGraphics, displayWidth * 1.08, displayHeight * 1.08);
     backgroundNode.addChild(fallbackNode);
 
     const spriteNode = new Node('HardWinSkySprite');
@@ -193,6 +191,56 @@ export class ResultDialogController extends Component {
     return backgroundNode;
   }
 
+  private drawHardWinFallbackSky(graphics: Graphics, width: number, height: number): void {
+    const left = -width / 2;
+    const bottom = -height / 2;
+    const bandHeight = height / 7;
+    const colors = [
+      new Color(58, 124, 189, 255),
+      new Color(73, 143, 207, 255),
+      new Color(96, 163, 220, 255),
+      new Color(129, 184, 229, 255),
+      new Color(166, 205, 236, 255),
+      new Color(197, 222, 241, 255),
+      new Color(219, 232, 244, 255),
+    ];
+
+    graphics.clear();
+    colors.forEach((color, index) => {
+      graphics.fillColor = color;
+      graphics.rect(left, bottom + bandHeight * index, width, bandHeight + 1);
+      graphics.fill();
+    });
+
+    this.drawCloudCluster(graphics, -width * 0.2, -height * 0.22, width * 0.2, 235);
+    this.drawCloudCluster(graphics, width * 0.22, -height * 0.18, width * 0.24, 225);
+    this.drawCloudCluster(graphics, 0, -height * 0.34, width * 0.32, 210);
+  }
+
+  private drawCloudCluster(graphics: Graphics, centerX: number, centerY: number, size: number, alpha: number): void {
+    const cloudColor = new Color(255, 255, 255, alpha);
+    const shadowColor = new Color(145, 168, 190, Math.floor(alpha * 0.35));
+    const circles = [
+      { x: -0.42, y: -0.03, r: 0.24 },
+      { x: -0.16, y: 0.1, r: 0.28 },
+      { x: 0.13, y: 0.12, r: 0.32 },
+      { x: 0.42, y: 0.02, r: 0.25 },
+      { x: 0.02, y: -0.08, r: 0.34 },
+    ];
+
+    graphics.fillColor = shadowColor;
+    circles.forEach((circle) => {
+      graphics.circle(centerX + circle.x * size, centerY + circle.y * size - size * 0.08, circle.r * size);
+      graphics.fill();
+    });
+
+    graphics.fillColor = cloudColor;
+    circles.forEach((circle) => {
+      graphics.circle(centerX + circle.x * size, centerY + circle.y * size, circle.r * size);
+      graphics.fill();
+    });
+  }
+
   private animateHardWinBackground(backgroundNode: Node): void {
     this.animatedNodes.push(backgroundNode);
     backgroundNode.setPosition(-10, -4, 0);
@@ -209,38 +257,46 @@ export class ResultDialogController extends Component {
   private createHardWinPoem(width: number, height: number): void {
     const poemRoot = new Node('HardWinPoem');
     const rootTransform = poemRoot.addComponent(UITransform);
-    rootTransform.setContentSize(width, 160);
-    poemRoot.setPosition(0, height * 0.12, 0);
+    rootTransform.setContentSize(width, 220);
+    poemRoot.setPosition(0, height * 0.1, 0);
     this.node.addChild(poemRoot);
 
-    const chars = [...HARD_WIN_TEXT];
-    const fontSize = Math.floor(Math.min(42, Math.max(26, width / 18)));
-    const charGap = fontSize * 0.1;
+    const lines = ['\u83ab\u9053\u6851\u6986\u665a', '\u4e3a\u971e\u5c1a\u6ee1\u5929'];
+    const fontSize = Math.floor(Math.min(58, Math.max(34, width / 13)));
+    const charGap = fontSize * 0.12;
     const step = fontSize + charGap;
-    const startX = -((chars.length - 1) * step) / 2;
+    const lineGap = fontSize * 1.35;
+    let animationIndex = 0;
 
-    chars.forEach((char, index) => {
-      const charNode = new Node(`PoemChar_${index}`);
-      const transform = charNode.addComponent(UITransform);
-      const opacity = charNode.addComponent(UIOpacity);
-      const label = charNode.addComponent(Label);
-      transform.setContentSize(fontSize + 8, fontSize + 18);
-      charNode.setPosition(startX + index * step, 0, 0);
-      opacity.opacity = 0;
-      label.string = char;
-      label.fontSize = fontSize;
-      label.lineHeight = fontSize + 10;
-      label.color = new Color(255, 255, 255, 255);
-      label.horizontalAlign = Label.HorizontalAlign.CENTER;
-      label.verticalAlign = Label.VerticalAlign.CENTER;
-      poemRoot.addChild(charNode);
-      this.animatedNodes.push(charNode);
-      this.animatedNodes.push(opacity.node);
+    lines.forEach((line, lineIndex) => {
+      const chars = [...line];
+      const startX = -((chars.length - 1) * step) / 2;
+      const y = lineIndex === 0 ? lineGap / 2 : -lineGap / 2;
 
-      tween(opacity)
-        .delay(index * 0.055)
-        .to(0.18, { opacity: 255 }, { easing: 'quadOut' })
-        .start();
+      chars.forEach((char, charIndex) => {
+        const charNode = new Node(`PoemChar_${lineIndex}_${charIndex}`);
+        const transform = charNode.addComponent(UITransform);
+        const opacity = charNode.addComponent(UIOpacity);
+        const label = charNode.addComponent(Label);
+        transform.setContentSize(fontSize + 10, fontSize + 22);
+        charNode.setPosition(startX + charIndex * step, y, 0);
+        opacity.opacity = 0;
+        label.string = char;
+        label.fontSize = fontSize;
+        label.lineHeight = fontSize + 12;
+        label.color = new Color(255, 255, 255, 255);
+        label.horizontalAlign = Label.HorizontalAlign.CENTER;
+        label.verticalAlign = Label.VerticalAlign.CENTER;
+        poemRoot.addChild(charNode);
+        this.animatedNodes.push(charNode);
+        this.animatedNodes.push(opacity.node);
+
+        tween(opacity)
+          .delay(animationIndex * 0.045)
+          .to(0.16, { opacity: 255 }, { easing: 'quadOut' })
+          .start();
+        animationIndex += 1;
+      });
     });
   }
 
