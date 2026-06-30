@@ -123,7 +123,7 @@ export class ResultDialogController extends Component {
     const graphics = this.node.getComponent(Graphics) ?? this.node.addComponent(Graphics);
     transform.setContentSize(width, height);
     graphics.clear();
-    graphics.fillColor = new Color(0, 0, 0, 255);
+    graphics.fillColor = new Color(76, 136, 190, 255);
     graphics.rect(-width / 2, -height / 2, width, height);
     graphics.fill();
 
@@ -156,23 +156,38 @@ export class ResultDialogController extends Component {
   private createHardWinBackground(width: number, height: number): Node {
     const backgroundNode = new Node('HardWinSkyBackground');
     const transform = backgroundNode.addComponent(UITransform);
-    const sprite = backgroundNode.addComponent(Sprite);
     const imageAspectRatio = 1448 / 1086;
     const targetAspectRatio = width / height;
     const displayHeight = targetAspectRatio > imageAspectRatio ? width / imageAspectRatio : height;
     const displayWidth = targetAspectRatio > imageAspectRatio ? width : height * imageAspectRatio;
 
     transform.setContentSize(displayWidth * 1.08, displayHeight * 1.08);
+
+    const fallbackNode = new Node('HardWinSkyFallback');
+    const fallbackTransform = fallbackNode.addComponent(UITransform);
+    const fallbackGraphics = fallbackNode.addComponent(Graphics);
+    fallbackTransform.setContentSize(displayWidth * 1.08, displayHeight * 1.08);
+    fallbackGraphics.fillColor = new Color(88, 151, 211, 255);
+    fallbackGraphics.rect(-displayWidth * 0.54, -displayHeight * 0.54, displayWidth * 1.08, displayHeight * 1.08);
+    fallbackGraphics.fill();
+    backgroundNode.addChild(fallbackNode);
+
+    const spriteNode = new Node('HardWinSkySprite');
+    const spriteTransform = spriteNode.addComponent(UITransform);
+    const sprite = spriteNode.addComponent(Sprite);
+    spriteTransform.setContentSize(displayWidth * 1.08, displayHeight * 1.08);
     sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+    backgroundNode.addChild(spriteNode);
+
     resources.load(HARD_WIN_BACKGROUND_PATH, SpriteFrame, (error, spriteFrame) => {
-      if (error || !spriteFrame || !backgroundNode.isValid) {
+      if (error || !spriteFrame || !spriteNode.isValid) {
         console.warn(`[ResultDialogController] Hard win background is unavailable: resources/${HARD_WIN_BACKGROUND_PATH}.`);
         return;
       }
 
       sprite.spriteFrame = spriteFrame;
       sprite.sizeMode = Sprite.SizeMode.CUSTOM;
-      transform.setContentSize(displayWidth * 1.08, displayHeight * 1.08);
+      spriteTransform.setContentSize(displayWidth * 1.08, displayHeight * 1.08);
     });
 
     return backgroundNode;
