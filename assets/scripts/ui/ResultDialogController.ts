@@ -1,4 +1,4 @@
-import { _decorator, Color, Component, Graphics, Label, Node, resources, Sprite, SpriteFrame, tween, Tween, UIOpacity, UITransform, Vec3 } from 'cc';
+import { _decorator, Color, Component, EventTouch, Graphics, Label, Node, resources, Sprite, SpriteFrame, tween, Tween, UIOpacity, UITransform, Vec2, Vec3 } from 'cc';
 import type { GameEndReason, GameSnapshot } from '../core/GameTypes';
 
 const { ccclass } = _decorator;
@@ -47,15 +47,14 @@ export class ResultDialogController extends Component {
 
     this.restartButton = this.createButton('\u91cd\u65b0\u5f00\u59cb', 180, 54);
     this.restartButton.setPosition(-96, -92, 0);
-    this.restartButton.on(Node.EventType.TOUCH_END, this.handleRestart, this);
     panel.addChild(this.restartButton);
 
     this.menuButton = this.createButton('\u8fd4\u56de\u83dc\u5355', 180, 54);
     this.menuButton.setPosition(96, -92, 0);
-    this.menuButton.on(Node.EventType.TOUCH_END, this.handleMenu, this);
     panel.addChild(this.menuButton);
 
     this.node.addChild(panel);
+    this.node.on(Node.EventType.TOUCH_END, this.handleDialogTouch, this);
   }
 
   public hide(): void {
@@ -83,14 +82,7 @@ export class ResultDialogController extends Component {
   }
 
   private clearButtonEvents(): void {
-    if (this.restartButton && this.restartButton.isValid) {
-      this.restartButton.off(Node.EventType.TOUCH_END, this.handleRestart, this);
-    }
-
-    if (this.menuButton && this.menuButton.isValid) {
-      this.menuButton.off(Node.EventType.TOUCH_END, this.handleMenu, this);
-    }
-
+    this.node.off(Node.EventType.TOUCH_END, this.handleDialogTouch, this);
     this.restartButton = null;
     this.menuButton = null;
   }
@@ -153,13 +145,12 @@ export class ResultDialogController extends Component {
     const buttonY = -height / 2 + Math.max(62, height * 0.105);
     this.restartButton = this.createButton('\u518d\u6311\u6218', 170, 52);
     this.restartButton.setPosition(-92, buttonY, 0);
-    this.restartButton.on(Node.EventType.TOUCH_END, this.handleRestart, this);
     this.node.addChild(this.restartButton);
 
     this.menuButton = this.createButton('\u8fd4\u56de\u83dc\u5355', 170, 52);
     this.menuButton.setPosition(92, buttonY, 0);
-    this.menuButton.on(Node.EventType.TOUCH_END, this.handleMenu, this);
     this.node.addChild(this.menuButton);
+    this.node.on(Node.EventType.TOUCH_END, this.handleDialogTouch, this);
   }
 
   private createHardWinBackground(width: number, height: number): Node {
@@ -315,6 +306,29 @@ export class ResultDialogController extends Component {
     if (this.onMenu) {
       this.onMenu();
     }
+  }
+
+  private handleDialogTouch(event: EventTouch): void {
+    const location = event.getUILocation();
+
+    if (this.isTouchInsideNode(location, this.restartButton)) {
+      this.handleRestart();
+      return;
+    }
+
+    if (this.isTouchInsideNode(location, this.menuButton)) {
+      this.handleMenu();
+    }
+  }
+
+  private isTouchInsideNode(location: Vec2, node: Node | null): boolean {
+    const transform = node?.getComponent(UITransform);
+
+    if (!node || !node.isValid || !transform) {
+      return false;
+    }
+
+    return transform.getBoundingBoxToWorld().contains(location);
   }
 
   private getTitle(reason: GameEndReason): string {

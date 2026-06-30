@@ -271,78 +271,78 @@ export class MainMenuController extends Component {
   }
 
   private getMenuLayout(width: number, height: number): MenuLayout {
-    const widthScale = this.clamp(width / 720, 0.82, 1);
+    const widthScale = this.clamp(width / 720, 0.95, 1.22);
 
     if (height < 900) {
-      const buttonHeight = this.clamp(height * 0.11, 72, 86);
-      const buttonGap = buttonHeight + this.clamp(height * 0.018, 14, 20);
-      const firstButtonY = Math.min(48, height / 2 - 325);
+      const buttonHeight = this.clamp(height * 0.118, 82, 102);
+      const buttonGap = buttonHeight + this.clamp(height * 0.022, 18, 26);
+      const firstButtonY = height * 0.055;
       const hardButtonCenterY = firstButtonY - buttonGap * 2;
 
       return {
-        titleY: height / 2 - 164,
+        titleY: height * 0.305,
         titleWidth: 560,
         titleHeight: 58,
-        titleFontSize: Math.floor(43 * widthScale),
-        titleLineHeight: Math.floor(53 * widthScale),
-        subtitleY: height / 2 - 214,
+        titleFontSize: Math.floor(48 * widthScale),
+        titleLineHeight: Math.floor(58 * widthScale),
+        subtitleY: height * 0.245,
         subtitleWidth: 620,
         subtitleHeight: 34,
-        subtitleFontSize: Math.floor(17 * widthScale),
-        subtitleLineHeight: Math.floor(25 * widthScale),
+        subtitleFontSize: Math.floor(20 * widthScale),
+        subtitleLineHeight: Math.floor(28 * widthScale),
         firstButtonY,
         buttonGap,
-        buttonWidth: this.clamp(width * 0.52, 360, 430),
+        buttonWidth: this.clamp(width * 0.68, 460, 560),
         buttonHeight,
-        buttonTitleY: 16,
-        buttonTitleHeight: 36,
-        buttonTitleFontSize: Math.floor(24 * widthScale),
-        buttonTitleLineHeight: Math.floor(30 * widthScale),
-        buttonDetailY: -21,
-        buttonDetailHeight: 28,
-        buttonDetailFontSize: Math.floor(16 * widthScale),
-        buttonDetailLineHeight: Math.floor(22 * widthScale),
-        hintY: Math.max(-height / 2 + 54, hardButtonCenterY - buttonHeight / 2 - 46),
+        buttonTitleY: 19,
+        buttonTitleHeight: 42,
+        buttonTitleFontSize: Math.floor(28 * widthScale),
+        buttonTitleLineHeight: Math.floor(35 * widthScale),
+        buttonDetailY: -24,
+        buttonDetailHeight: 32,
+        buttonDetailFontSize: Math.floor(18 * widthScale),
+        buttonDetailLineHeight: Math.floor(25 * widthScale),
+        hintY: hardButtonCenterY - buttonHeight / 2 - this.clamp(height * 0.06, 42, 56),
         hintWidth: 620,
         hintHeight: 48,
-        hintFontSize: Math.floor(15 * widthScale),
-        hintLineHeight: Math.floor(21 * widthScale),
+        hintFontSize: Math.floor(17 * widthScale),
+        hintLineHeight: Math.floor(24 * widthScale),
       };
     }
 
-    const buttonHeight = this.clamp(height * 0.074, 86, 96);
-    const buttonGap = buttonHeight + this.clamp(height * 0.018, 22, 30);
-    const firstButtonY = height / 2 - 530;
+    const buttonHeight = this.clamp(height * 0.088, 98, 122);
+    const buttonGap = buttonHeight + this.clamp(height * 0.021, 26, 40);
+    const firstButtonY = height * 0.055;
     const hardButtonCenterY = firstButtonY - buttonGap * 2;
 
     return {
-      titleY: height / 2 - 205,
+      titleY: height * 0.305,
       titleWidth: 620,
       titleHeight: 76,
-      titleFontSize: Math.floor(54 * widthScale),
-      titleLineHeight: Math.floor(64 * widthScale),
-      subtitleY: height / 2 - 264,
+      titleFontSize: Math.floor(62 * widthScale),
+      titleLineHeight: Math.floor(72 * widthScale),
+      subtitleY: height * 0.245,
       subtitleWidth: 660,
       subtitleHeight: 42,
-      subtitleFontSize: Math.floor(21 * widthScale),
-      subtitleLineHeight: Math.floor(29 * widthScale),
+      subtitleFontSize: Math.floor(24 * widthScale),
+      subtitleLineHeight: Math.floor(33 * widthScale),
       firstButtonY,
       buttonGap,
-      buttonWidth: this.clamp(width * 0.54, 410, 490),
+      buttonWidth: this.clamp(width * 0.68, 500, 620),
       buttonHeight,
-      buttonTitleY: 18,
-      buttonTitleHeight: 44,
-      buttonTitleFontSize: Math.floor(29 * widthScale),
-      buttonTitleLineHeight: Math.floor(34 * widthScale),
-      buttonDetailY: -24,
-      buttonDetailHeight: 36,
-      buttonDetailFontSize: Math.floor(19 * widthScale),
-      buttonDetailLineHeight: Math.floor(25 * widthScale),
-      hintY: Math.max(-height / 2 + 96, hardButtonCenterY - buttonHeight / 2 - 54),
+      buttonTitleY: 22,
+      buttonTitleHeight: 50,
+      buttonTitleFontSize: Math.floor(34 * widthScale),
+      buttonTitleLineHeight: Math.floor(41 * widthScale),
+      buttonDetailY: -29,
+      buttonDetailHeight: 42,
+      buttonDetailFontSize: Math.floor(22 * widthScale),
+      buttonDetailLineHeight: Math.floor(30 * widthScale),
+      hintY: hardButtonCenterY - buttonHeight / 2 - this.clamp(height * 0.058, 54, 76),
       hintWidth: 660,
       hintHeight: 72,
-      hintFontSize: Math.floor(18 * widthScale),
-      hintLineHeight: Math.floor(25 * widthScale),
+      hintFontSize: Math.floor(21 * widthScale),
+      hintLineHeight: Math.floor(30 * widthScale),
     };
   }
 
